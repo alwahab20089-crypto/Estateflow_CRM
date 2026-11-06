@@ -44,6 +44,7 @@ const leadSchema = new Schema(
     nextFollowUpAt: { type: Date },
     // lifecycle (Phase 1)
     convertedContactId: { type: Schema.Types.ObjectId }, // set by the conversion workflow in Phase 5
+    convertedAt: { type: Date },
     wonAt: { type: Date },
     lostAt: { type: Date },
     lostReason: { type: String, maxlength: 500 },
@@ -79,6 +80,6 @@ leadSchema.index({ organizationId: 1, nameSort: 1 });
 leadSchema.index({ organizationId: 1, searchKeywords: 1 });
 leadSchema.index({ organizationId: 1, phone: 1 });
 leadSchema.index({ organizationId: 1, email: 1 }, { sparse: true });
-
+leadSchema.index({ organizationId: 1, convertedContactId: 1 }, { sparse: true });
 export type LeadDoc = HydratedDocument<InferSchemaType<typeof leadSchema>>;
 export const Lead = model('Lead', leadSchema);

@@ -1,16 +1,26 @@
-import type { LeadSource, LeadStatus, LeadType, MemberRole, Priority, PropertyType } from '@/types';
+
+import type {
+  LeadSource,
+  LeadStatus,
+  LeadType,
+  MemberRole,
+  Priority,
+  PropertyType,
+} from '@/types';
 
 export interface LeadBudget {
   min: number | null; // minor units
   max: number | null;
   currency: string;
 }
+
 export interface LeadAssignee {
   _id: string;
   name: string;
   email: string;
   avatar?: string;
 }
+
 export interface LeadDto {
   _id: string;
   firstName: string;
@@ -32,6 +42,8 @@ export interface LeadDto {
   wonAt: string | null;
   lostAt: string | null;
   lostReason: string | null;
+  convertedContactId: string | null;
+  convertedAt: string | null;
   createdBy: string;
   deletedAt: string | null;
   createdAt: string;
@@ -45,7 +57,12 @@ export interface PageMeta {
   totalPages: number;
 }
 
-export type SortField = 'createdAt' | 'name' | 'priority' | 'status' | 'nextFollowUpAt';
+export type SortField =
+  | 'createdAt'
+  | 'name'
+  | 'priority'
+  | 'status'
+  | 'nextFollowUpAt';
 
 export interface LeadListParams {
   page: number;
@@ -83,8 +100,18 @@ export interface LeadPayload {
 }
 
 export type LeadActivityType =
-  | 'CREATED' | 'UPDATE' | 'STATUS_CHANGE' | 'ASSIGNMENT' | 'NOTE' | 'FOLLOW_UP'
-  | 'CALL' | 'EMAIL' | 'MEETING' | 'PROPERTY_VIEWING' | 'OTHER';
+  | 'CREATED'
+  | 'UPDATE'
+  | 'STATUS_CHANGE'
+  | 'ASSIGNMENT'
+  | 'NOTE'
+  | 'FOLLOW_UP'
+  | 'CALL'
+  | 'EMAIL'
+  | 'MEETING'
+  | 'PROPERTY_VIEWING'
+  | 'OTHER'
+  | 'CONVERTED';
 
 export interface LeadActivityDto {
   _id: string;

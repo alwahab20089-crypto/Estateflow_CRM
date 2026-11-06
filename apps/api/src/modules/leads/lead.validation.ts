@@ -1,27 +1,42 @@
+
 import { z } from 'zod';
-import { LEAD_PRIORITIES, LEAD_SOURCES, LEAD_STATUSES, LEAD_TYPES, MAX_MINOR_UNITS, OPEN_LEAD_STATUSES, PROPERTY_TYPES } from '../../constants';
+import {
+  LEAD_PRIORITIES,
+  LEAD_SOURCES,
+  LEAD_STATUSES,
+  LEAD_TYPES,
+  MAX_MINOR_UNITS,
+  OPEN_LEAD_STATUSES,
+  PROPERTY_TYPES,
+} from '../../constants';
 import { objectIdSchema } from '../../utils/object-id';
 import { isValidPhone, normalizePhone } from '../../utils/phone';
 
-const isoDate = z
+export const isoDate = z
   .string()
   .datetime({ offset: true, message: 'Use an ISO 8601 date-time' })
   .transform((s) => new Date(s));
 
-const phone = z
+export const phone = z
   .string()
   .trim()
   .transform(normalizePhone)
   .refine(isValidPhone, 'Enter a valid phone number (6-15 digits, optional +)');
 
 // '' and null both mean "no value" (null clears the field on update)
-const optionalPhone = z
+export const optionalPhone = z
   .union([z.literal('').transform(() => null), z.null(), phone])
   .optional();
-const optionalEmail = z
-  .union([z.literal('').transform(() => null), z.null(), z.string().trim().toLowerCase().email('Enter a valid email address').max(254)])
+
+export const optionalEmail = z
+  .union([
+    z.literal('').transform(() => null),
+    z.null(),
+    z.string().trim().toLowerCase().email('Enter a valid email address').max(254),
+  ])
   .optional();
-const optionalText = (max: number) =>
+
+export const optionalText = (max: number) =>
   z.union([z.literal('').transform(() => null), z.null(), z.string().trim().max(max)]).optional();
 
 const minor = z
@@ -85,10 +100,16 @@ export const statusSchema = z
     status: z.enum(LEAD_STATUSES),
     reason: z.string().trim().min(3, 'Please add a short reason (3+ characters)').max(500).optional(),
   })
-  .refine((v) => v.status !== 'LOST' || Boolean(v.reason), { message: 'A reason is required when marking a lead as lost', path: ['reason'] });
+  .refine((v) => v.status !== 'LOST' || Boolean(v.reason), {
+    message: 'A reason is required when marking a lead as lost',
+    path: ['reason'],
+  });
 
 export const assignSchema = z.object({ assignedTo: objectIdSchema.nullable() });
-export const noteSchema = z.object({ body: z.string().trim().min(1, 'Note cannot be empty').max(2000, 'Note is too long (max 2000 characters)') });
+
+export const noteSchema = z.object({
+  body: z.string().trim().min(1, 'Note cannot be empty').max(2000, 'Note is too long (max 2000 characters)'),
+});
 
 // strict(): unknown filters are rejected with 422
 export const listLeadsQuerySchema = z
@@ -113,7 +134,15 @@ export const activitiesQuerySchema = z
   .object({
     page: z.coerce.number().int().min(1).default(1),
     limit: z.coerce.number().int().min(1).max(100).default(20),
-    type: z.enum(['NOTE', 'STATUS_CHANGE', 'ASSIGNMENT', 'FOLLOW_UP', 'UPDATE', 'CREATED']).optional(),
+    type: z.enum([
+      'NOTE',
+      'STATUS_CHANGE',
+      'ASSIGNMENT',
+      'FOLLOW_UP',
+      'UPDATE',
+      'CREATED',
+      'CONVERTED',
+    ]).optional(),
   })
   .strict();
 

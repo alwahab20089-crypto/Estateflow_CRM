@@ -19,8 +19,14 @@ export const PROPERTY_TYPES = ['HOUSE', 'APARTMENT', 'PLOT', 'COMMERCIAL', 'OFFI
 export const ACTIVITY_ENTITY_TYPES = ['LEAD', 'CONTACT', 'PROPERTY', 'TASK'] as const;
 export const ACTIVITY_TYPES = [
   'CALL', 'EMAIL', 'MEETING', 'NOTE', 'STATUS_CHANGE', 'FOLLOW_UP', 'PROPERTY_VIEWING', 'OTHER',
-  'CREATED', 'ASSIGNMENT', 'UPDATE',
+  'CREATED', 'ASSIGNMENT', 'UPDATE', 'CONVERTED',
 ] as const;
+
+export const CONTACT_TYPES = ['BUYER', 'SELLER', 'TENANT', 'LANDLORD', 'INVESTOR', 'OTHER'] as const;
+export const CONTACT_STATUSES = ['ACTIVE', 'INACTIVE'] as const;
+export const CONTACT_METHODS = ['PHONE', 'EMAIL', 'WHATSAPP', 'SMS'] as const;
+/** Lead statuses that may be converted into a contact. LOST is deliberately excluded (reopen it first). */
+export const CONVERTIBLE_LEAD_STATUSES = ['QUALIFIED', 'MEETING_SCHEDULED', 'NEGOTIATION', 'WON'] as const;
 
 /** Money is stored as integer minor units. 1e13 minor units is far below 2^53, so doubles stay exact. */
 export const MAX_MINOR_UNITS = 10_000_000_000_000;

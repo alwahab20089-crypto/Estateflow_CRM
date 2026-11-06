@@ -2,6 +2,13 @@ import { Organization } from '../organizations/organization.model';
 import type { MemberRole } from '../../constants';
 import { OrganizationMember, type MemberDoc } from './member.model';
 import { resolvePermissions } from './permissions';
+import { AppError } from '../../utils/app-error';
+
+/** The selected user must be an active, accepted member of THIS organization. */
+export async function assertActiveMember(organizationId: string, userId: string, path = 'assignedTo') {
+  const member = await OrganizationMember.exists({ organizationId, userId, status: 'ACTIVE', invitationStatus: 'ACCEPTED' });
+  if (!member) throw AppError.validation([{ path, message: 'The selected member does not belong to this organization' }]);
+}
 
 export type TenantContext = {
   organizationId: string;

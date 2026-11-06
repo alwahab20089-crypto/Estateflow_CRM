@@ -1,14 +1,17 @@
-import { useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { SidebarNav } from '@/components/layout/sidebar';
 import { Topbar } from '@/components/layout/topbar';
-import { GlobalSearch } from '@/components/search/global-search';
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { cn } from '@/lib/utils';
 
 const COLLAPSE_KEY = 'ef-sidebar-collapsed';
-
+const GlobalSearch = lazy(() =>
+  import('@/components/search/global-search').then((module) => ({
+    default: module.GlobalSearch,
+  })),
+);
 export function AppLayout() {
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem(COLLAPSE_KEY) === '1');
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -78,7 +81,11 @@ export function AppLayout() {
         </main>
       </div>
 
-      <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
+{searchOpen && (
+  <Suspense fallback={null}>
+    <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
+  </Suspense>
+)}
     </div>
   );
 }

@@ -1,54 +1,105 @@
 
 import { CalendarDays, FileText } from 'lucide-react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
-import { AcceptInvitationPage } from '@/features/auth/pages/accept-invitation-page';
-import { ForgotPasswordPage } from '@/features/auth/pages/forgot-password-page';
-import { LoginPage } from '@/features/auth/pages/login-page';
-import { RegisterPage } from '@/features/auth/pages/register-page';
-import { ResetPasswordPage } from '@/features/auth/pages/reset-password-page';
-import { DashboardPage } from '@/features/dashboard/dashboard-page';
-import { LeadDetailPage } from '@/features/leads/lead-detail-page';
-import { LeadsPage } from '@/features/leads/leads-page';
-import { SettingsPage } from '@/features/settings/settings-page';
+
 import { AppLayout } from '@/layouts/app-layout';
 import { AuthLayout } from '@/layouts/auth-layout';
-import { ActivitiesPage } from '@/pages/activities-page';
-import { AnalyticsPage } from '@/pages/analytics-page';
+
 import { ComingSoonPage } from '@/pages/coming-soon-page';
-import { ContactsPage } from '@/pages/contacts-page';
 import { NotFoundPage } from '@/pages/not-found-page';
-import { PipelinePage } from '@/pages/pipeline-page';
-import { PropertiesPage } from '@/pages/properties-page';
 import { RouteError } from '@/pages/route-error';
-import { TasksPage } from '@/pages/tasks-page';
-import { TeamPage } from '@/pages/team-page';
+
 import { PublicOnly, RequireAuth } from './guards';
 
+import {
+  AcceptInvitationPage,
+  ForgotPasswordPage,
+  LoginPage,
+  RegisterPage,
+  ResetPasswordPage,
+  DashboardPage,
+  LeadDetailPage,
+  LeadsPage,
+  ContactDetailPage,
+  ContactsPage,
+  SettingsPage,
+  ActivitiesPage,
+  AnalyticsPage,
+  PipelinePage,
+  PropertiesPage,
+  TasksPage,
+  TeamPage,
+  LazyPage,
+} from './lazy-pages';
+
 export const router = createBrowserRouter([
-  { path: '/', element: <Navigate to="/app/dashboard" replace /> },
+  {
+    path: '/',
+    element: <Navigate to="/app/dashboard" replace />,
+  },
   {
     errorElement: <RouteError />,
     children: [
+      // Public authentication routes
       {
         element: <PublicOnly />,
         children: [
           {
             element: <AuthLayout />,
             children: [
-              { path: '/login', element: <LoginPage /> },
-              { path: '/register', element: <RegisterPage /> },
-              { path: '/forgot-password', element: <ForgotPasswordPage /> },
+              {
+                path: '/login',
+                element: (
+                  <LazyPage>
+                    <LoginPage />
+                  </LazyPage>
+                ),
+              },
+              {
+                path: '/register',
+                element: (
+                  <LazyPage>
+                    <RegisterPage />
+                  </LazyPage>
+                ),
+              },
+              {
+                path: '/forgot-password',
+                element: (
+                  <LazyPage>
+                    <ForgotPasswordPage />
+                  </LazyPage>
+                ),
+              },
             ],
           },
         ],
       },
+
+      // Other authentication routes
       {
         element: <AuthLayout />,
         children: [
-          { path: '/reset-password', element: <ResetPasswordPage /> },
-          { path: '/accept-invitation', element: <AcceptInvitationPage /> },
+          {
+            path: '/reset-password',
+            element: (
+              <LazyPage>
+                <ResetPasswordPage />
+              </LazyPage>
+            ),
+          },
+          {
+            path: '/accept-invitation',
+            element: (
+              <LazyPage>
+                <AcceptInvitationPage />
+              </LazyPage>
+            ),
+          },
         ],
       },
+
+      // Protected application routes
       {
         path: '/app',
         element: <RequireAuth />,
@@ -56,14 +107,74 @@ export const router = createBrowserRouter([
           {
             element: <AppLayout />,
             children: [
-              { index: true, element: <Navigate to="dashboard" replace /> },
-              { path: 'dashboard', element: <DashboardPage /> },
-              { path: 'leads', element: <LeadsPage /> },
-              { path: 'leads/:leadId', element: <LeadDetailPage /> },
-              { path: 'contacts', element: <ContactsPage /> },
-              { path: 'properties', element: <PropertiesPage /> },
-              { path: 'pipeline', element: <PipelinePage /> },
-              { path: 'tasks', element: <TasksPage /> },
+              {
+                index: true,
+                element: <Navigate to="dashboard" replace />,
+              },
+              {
+                path: 'dashboard',
+                element: (
+                  <LazyPage>
+                    <DashboardPage />
+                  </LazyPage>
+                ),
+              },
+              {
+                path: 'leads',
+                element: (
+                  <LazyPage>
+                    <LeadsPage />
+                  </LazyPage>
+                ),
+              },
+              {
+                path: 'leads/:leadId',
+                element: (
+                  <LazyPage>
+                    <LeadDetailPage />
+                  </LazyPage>
+                ),
+              },
+              {
+                path: 'contacts',
+                element: (
+                  <LazyPage>
+                    <ContactsPage />
+                  </LazyPage>
+                ),
+              },
+              {
+                path: 'contacts/:contactId',
+                element: (
+                  <LazyPage>
+                    <ContactDetailPage />
+                  </LazyPage>
+                ),
+              },
+              {
+                path: 'properties',
+                element: (
+                  <LazyPage>
+                    <PropertiesPage />
+                  </LazyPage>
+                ),
+              },
+              {
+                path: 'pipeline',
+                element: (
+                  <LazyPage>
+                    <PipelinePage />
+                  </LazyPage>
+                ),
+              },
+              {
+                path: 'tasks',
+                element: (
+                  <LazyPage>
+                    <TasksPage />
+                  </LazyPage>
+                ),
+              },
               {
                 path: 'calendar',
                 element: (
@@ -75,8 +186,22 @@ export const router = createBrowserRouter([
                   />
                 ),
               },
-              { path: 'activities', element: <ActivitiesPage /> },
-              { path: 'analytics', element: <AnalyticsPage /> },
+              {
+                path: 'activities',
+                element: (
+                  <LazyPage>
+                    <ActivitiesPage />
+                  </LazyPage>
+                ),
+              },
+              {
+                path: 'analytics',
+                element: (
+                  <LazyPage>
+                    <AnalyticsPage />
+                  </LazyPage>
+                ),
+              },
               {
                 path: 'reports',
                 element: (
@@ -88,14 +213,36 @@ export const router = createBrowserRouter([
                   />
                 ),
               },
-              { path: 'team', element: <TeamPage /> },
-              { path: 'settings', element: <SettingsPage /> },
-              { path: '*', element: <NotFoundPage /> },
+              {
+                path: 'team',
+                element: (
+                  <LazyPage>
+                    <TeamPage />
+                  </LazyPage>
+                ),
+              },
+              {
+                path: 'settings',
+                element: (
+                  <LazyPage>
+                    <SettingsPage />
+                  </LazyPage>
+                ),
+              },
+              {
+                path: '*',
+                element: <NotFoundPage />,
+              },
             ],
           },
         ],
       },
-      { path: '*', element: <NotFoundPage /> },
+
+      // Global 404
+      {
+        path: '*',
+        element: <NotFoundPage />,
+      },
     ],
   },
 ]);

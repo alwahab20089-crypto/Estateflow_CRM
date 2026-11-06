@@ -5,6 +5,8 @@ import { healthRouter } from './modules/health/health.routes';
 import { organizationRouter } from './modules/organizations/organization.routes';
 import { createLeadRouter } from './modules/leads/lead.routes';
 import { memberRouter } from './modules/members/member.routes';
+import { createContactRouter } from './modules/contacts/contact.routes';
+
 
 export function createApiRouter(options: RateLimitOptions = {}) {
   const router = Router();
@@ -15,6 +17,7 @@ export function createApiRouter(options: RateLimitOptions = {}) {
   router.use('/auth', createAuthRouter(limiters));
   router.use('/organizations', organizationRouter);
   router.use('/leads', createLeadRouter(limiters));
+  router.use('/contacts', createContactRouter(limiters));
   router.use('/members', memberRouter);
   return router;
 }

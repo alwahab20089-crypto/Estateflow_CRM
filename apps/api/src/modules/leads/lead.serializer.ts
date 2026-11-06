@@ -1,3 +1,4 @@
+
 import type { Types } from 'mongoose';
 
 type Id = Types.ObjectId | string;
@@ -27,6 +28,7 @@ export interface LeadLike {
   notes?: string | null;
   nextFollowUpAt?: Date | null;
   convertedContactId?: Id | null;
+  convertedAt?: Date | null;
   wonAt?: Date | null;
   lostAt?: Date | null;
   lostReason?: string | null;
@@ -40,7 +42,14 @@ const iso = (d?: Date | null) => (d ? new Date(d).toISOString() : null);
 
 /** Explicit allow-list: organizationId, ranks, search keywords and deletedBy never leave the API. */
 export function toLeadDto(lead: LeadLike, assignee: UserBrief | null) {
-  const budget = lead.budget?.currency ? { min: lead.budget.min ?? null, max: lead.budget.max ?? null, currency: lead.budget.currency } : null;
+  const budget = lead.budget?.currency
+    ? {
+        min: lead.budget.min ?? null,
+        max: lead.budget.max ?? null,
+        currency: lead.budget.currency,
+      }
+    : null;
+
   return {
     _id: String(lead._id),
     firstName: lead.firstName,
@@ -59,9 +68,15 @@ export function toLeadDto(lead: LeadLike, assignee: UserBrief | null) {
     nextFollowUpAt: iso(lead.nextFollowUpAt),
     assignedTo: lead.assignedTo ? String(lead.assignedTo) : null,
     assignee: assignee
-      ? { _id: String(assignee._id), name: assignee.name, email: assignee.email, avatar: assignee.avatar ?? undefined }
+      ? {
+          _id: String(assignee._id),
+          name: assignee.name,
+          email: assignee.email,
+          avatar: assignee.avatar ?? undefined,
+        }
       : null,
     convertedContactId: lead.convertedContactId ? String(lead.convertedContactId) : null,
+    convertedAt: iso(lead.convertedAt),
     wonAt: iso(lead.wonAt),
     lostAt: iso(lead.lostAt),
     lostReason: lead.lostReason ?? null,

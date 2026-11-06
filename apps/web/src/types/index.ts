@@ -109,7 +109,7 @@ export interface Lead {
   updatedAt: ISODate;
 }
 
-export type ContactType = 'CLIENT' | 'OWNER' | 'TENANT' | 'LANDLORD' | 'PARTNER' | 'OTHER';
+export type ContactType = 'BUYER' | 'SELLER' | 'TENANT' | 'LANDLORD' | 'INVESTOR' | 'OTHER';
 export interface Contact {
   _id: ID;
   organizationId: ID;

@@ -48,3 +48,26 @@ export const addMember = (userId: string, organizationId: string, role: MemberRo
     status: 'ACTIVE',
     joinedAt: new Date(),
   });
+  export const asUser = (token: string, org: string) => {
+  const call = (method: 'get' | 'post' | 'patch' | 'delete', url: string, body?: object) => {
+    const req = request(app)[method](`${API}${url}`).set(bearer(token)).set('X-Organization-Id', org);
+    return body ? req.send(body) : req;
+  };
+  return {
+    get: (u: string) => call('get', u),
+    post: (u: string, b?: object) => call('post', u, b ?? {}),
+    patch: (u: string, b?: object) => call('patch', u, b),
+    delete: (u: string) => call('delete', u),
+  };
+};
+
+export async function setupOrg() {
+  const owner = await registerUser();
+  return { owner, org: owner.organization._id, api: asUser(owner.accessToken, owner.organization._id) };
+}
+
+export async function memberOf(org: string, role: 'ADMIN' | 'MANAGER' | 'AGENT') {
+  const u = await registerUser();
+  await addMember(u.user._id, org, role);
+  return { ...u, api: asUser(u.accessToken, org) };
+}

@@ -1,25 +1,32 @@
+
 import type { ErrorRequestHandler } from 'express';
 import mongoose from 'mongoose';
 import { ZodError } from 'zod';
 import { logger } from '../config/logger';
 import { AppError, type ErrorDetail } from '../utils/app-error';
 
-const isDuplicateKey = (err: unknown) => typeof err === 'object' && err !== null && (err as { code?: number }).code === 11000;
+const isDuplicateKey = (err: unknown) =>
+  typeof err === 'object' && err !== null && (err as { code?: number }).code === 11000;
 
 export const errorHandler: ErrorRequestHandler = (err, req, res, _next) => {
   let status = 500;
   let message = 'Something went wrong';
   let code = 'INTERNAL_ERROR';
   let errors: ErrorDetail[] = [];
+  let details: unknown;
 
   if (err instanceof AppError) {
     ({ message, code, errors } = err);
+    details = err.details;
     status = err.statusCode;
   } else if (err instanceof ZodError) {
     status = 422;
     message = 'Validation failed';
     code = 'VALIDATION_ERROR';
-    errors = err.issues.map((i) => ({ path: i.path.map(String).join('.'), message: i.message }));
+    errors = err.issues.map((i) => ({
+      path: i.path.map(String).join('.'),
+      message: i.message,
+    }));
   } else if (isDuplicateKey(err)) {
     status = 409;
     message = 'A record with these details already exists';
@@ -28,7 +35,10 @@ export const errorHandler: ErrorRequestHandler = (err, req, res, _next) => {
     status = 422;
     message = 'Validation failed';
     code = 'VALIDATION_ERROR';
-    errors = Object.entries(err.errors).map(([path, e]) => ({ path, message: e.message }));
+    errors = Object.entries(err.errors).map(([path, e]) => ({
+      path,
+      message: e.message,
+    }));
   } else if (err instanceof mongoose.Error.CastError) {
     status = 400;
     message = 'Invalid identifier';
@@ -40,7 +50,16 @@ export const errorHandler: ErrorRequestHandler = (err, req, res, _next) => {
     message = err.type === 'entity.parse.failed' ? 'Malformed JSON body' : 'Invalid request';
   }
 
-  if (status >= 500) logger.error({ err, requestId: req.id }, 'unhandled error');
+  if (status >= 500) {
+    logger.error({ err, requestId: req.id }, 'unhandled error');
+  }
 
-  res.status(status).json({ success: false, message, code, errors, requestId: req.id });
+  res.status(status).json({
+    success: false,
+    message,
+    code,
+    errors,
+    ...(details !== undefined ? { details } : {}),
+    requestId: req.id,
+  });
 };

@@ -1,7 +1,10 @@
+
 import type { MemberRole } from '../../constants';
 
 const CRM_RESOURCES = ['leads', 'contacts', 'properties', 'tasks', 'activities'];
-const crm = (actions: string[]) => CRM_RESOURCES.flatMap((r) => actions.map((a) => `${r}:${a}`));
+
+const crm = (actions: string[]) =>
+  CRM_RESOURCES.flatMap((r) => actions.map((a) => `${r}:${a}`));
 
 export const ALL_PERMISSIONS: string[] = [
   'org:read',
@@ -19,21 +22,50 @@ export const ALL_PERMISSIONS: string[] = [
   'leads:read_all',
   'leads:assign',
   'leads:reopen',
+  'leads:convert',
+  'contacts:read_all',
+  'contacts:assign',
   ...crm(['read', 'create', 'update', 'delete']),
 ];
 
 const ROLE_PERMISSIONS: Record<MemberRole, string[]> = {
   OWNER: ALL_PERMISSIONS,
+
   // ADMIN: organization settings and members, but no billing, license or organization deletion
   ADMIN: ALL_PERMISSIONS.filter(
-    (p) => p !== 'org:delete' && !p.startsWith('billing:') && !p.startsWith('license:'),
+    (p) =>
+      p !== 'org:delete' &&
+      !p.startsWith('billing:') &&
+      !p.startsWith('license:'),
   ),
-  MANAGER: ['org:read', 'members:read', 'analytics:read', 'leads:read_all', 'leads:assign','leads:reopen', ...crm(['read', 'create', 'update'])],
-  AGENT: ['org:read', ...crm(['read', 'create', 'update'])],
+
+  MANAGER: [
+    'org:read',
+    'members:read',
+    'analytics:read',
+    'leads:read_all',
+    'leads:assign',
+    'leads:reopen',
+    'leads:convert',
+    'contacts:read_all',
+    'contacts:assign',
+    ...crm(['read', 'create', 'update']),
+  ],
+
+  AGENT: [
+    'org:read',
+    'leads:convert',
+    ...crm(['read', 'create', 'update']),
+  ],
 };
 
 /** Effective permissions = (role defaults ∪ grants) − denied */
-export function resolvePermissions(role: MemberRole, grants: string[] = [], denied: string[] = []): string[] {
+export function resolvePermissions(
+  role: MemberRole,
+  grants: string[] = [],
+  denied: string[] = [],
+): string[] {
   const merged = new Set([...ROLE_PERMISSIONS[role], ...grants]);
+
   return [...merged].filter((p) => !denied.includes(p)).sort();
 }

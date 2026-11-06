@@ -8,7 +8,8 @@ import { validate } from '../../middleware/validate';
 import { requireObjectIdParam } from '../../utils/require-object-id';
 import * as controller from './lead.controller';
 import { assignSchema, createLeadSchema, noteSchema, statusSchema, updateLeadSchema } from './lead.validation';
-
+import * as contactController from '../contacts/contact.controller';
+import { convertLeadSchema } from '../contacts/contact.validation';
 export function createLeadRouter(limiters: RateLimiters) {
   const router = Router();
   const writesOnly: RequestHandler = (req, res, next) => (req.method === 'GET' ? next() : limiters.write(req, res, next));
@@ -30,6 +31,6 @@ export function createLeadRouter(limiters: RateLimiters) {
 
   router.get('/:id/activities', id, authorize('activities:read'), controller.activities);
   router.post('/:id/notes', id, authorize('activities:create'), validate({ body: noteSchema }), controller.addNote);
-
+  router.post('/:id/convert-to-contact', id, authorize('leads:convert'), validate({ body: convertLeadSchema }), contactController.convertLead);
   return router;
 }
