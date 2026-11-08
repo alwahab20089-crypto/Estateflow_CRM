@@ -16,7 +16,7 @@ export const LEAD_SOURCES = [
   'WEBSITE', 'FACEBOOK', 'INSTAGRAM', 'WHATSAPP', 'REFERRAL', 'WALK_IN', 'PROPERTY_PORTAL', 'PHONE_CALL', 'OTHER',
 ] as const;
 export const PROPERTY_TYPES = ['HOUSE', 'APARTMENT', 'PLOT', 'COMMERCIAL', 'OFFICE', 'FARMHOUSE', 'OTHER'] as const;
-export const ACTIVITY_ENTITY_TYPES = ['LEAD', 'CONTACT', 'PROPERTY', 'TASK'] as const;
+export const ACTIVITY_ENTITY_TYPES = ['LEAD', 'CONTACT', 'PROPERTY', 'TASK', 'DEAL'] as const;
 export const ACTIVITY_TYPES = [
   'CALL', 'EMAIL', 'MEETING', 'NOTE', 'STATUS_CHANGE', 'FOLLOW_UP', 'PROPERTY_VIEWING', 'OTHER',
   'CREATED', 'ASSIGNMENT', 'UPDATE', 'CONVERTED',
@@ -33,3 +33,15 @@ export const MAX_MINOR_UNITS = 10_000_000_000_000;
 
 export type LeadStatus = (typeof LEAD_STATUSES)[number];
 export type LeadPriority = (typeof LEAD_PRIORITIES)[number];
+export const PROPERTY_STATUSES = ['DRAFT', 'AVAILABLE', 'UNDER_OFFER', 'RESERVED', 'SOLD', 'RENTED', 'LEASED', 'INACTIVE'] as const;
+export const LISTING_TYPES = ['SALE', 'RENT', 'LEASE'] as const;
+export const AREA_UNITS = ['SQFT', 'SQM', 'MARLA', 'KANAL', 'ACRE'] as const;
+export const FURNISHING_STATUSES = ['FURNISHED', 'SEMI_FURNISHED', 'UNFURNISHED', 'NOT_APPLICABLE'] as const;
+export const RENT_PERIODS = ['DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY', 'YEARLY'] as const;
+export const DEAL_TYPES = LISTING_TYPES;
+export const DEAL_STAGES = ['NEW', 'QUALIFICATION', 'PROPERTY_MATCHED', 'VIEWING_SCHEDULED', 'NEGOTIATION', 'CONTRACT', 'WON', 'LOST'] as const;
+export const MAX_PROPERTY_IMAGES = 20;
+/** Property status after a deal of that type is WON. */
+export const CLOSED_PROPERTY_STATUS = { SALE: 'SOLD', RENT: 'RENTED', LEASE: 'LEASED' } as const;
+/** Statuses that can still take a deal. */
+export const DEALABLE_PROPERTY_STATUSES = ['AVAILABLE', 'UNDER_OFFER', 'RESERVED'] as const;
