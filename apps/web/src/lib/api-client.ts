@@ -85,21 +85,21 @@ async function rawRequest<T, M>(
   options: RawOptions = {},
 ): Promise<Envelope<T, M>> {
   const { method = 'GET', body, signal, token, organizationId } = options;
-
+const isForm = typeof FormData !== 'undefined' && body instanceof FormData;
   let response: Response;
 
   try {
     response = await fetch(`${API_URL}${path}`, {
       method,
       signal,
-      credentials: 'include', // refresh cookie
+      credentials: 'include',
       headers: {
-        'X-Requested-With': 'EstateFlow', // CSRF defense; forces a CORS preflight
-        ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+        'X-Requested-With': 'EstateFlow',
+        ...(body !== undefined && !isForm ? { 'Content-Type': 'application/json' } : {}), // the browser sets the multipart boundary
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...(organizationId ? { 'X-Organization-Id': organizationId } : {}),
       },
-      body: body !== undefined ? JSON.stringify(body) : undefined,
+      body: body === undefined ? undefined : isForm ? (body as FormData) : JSON.stringify(body),
     });
   } catch (err) {
     if (err instanceof DOMException && err.name === 'AbortError') throw err;

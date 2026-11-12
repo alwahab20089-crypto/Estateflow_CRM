@@ -1,3 +1,4 @@
+
 import { Types, type ClientSession } from 'mongoose';
 import { logger } from '../../config/logger';
 import type { RequestMeta } from '../../utils/request-meta';
@@ -9,12 +10,20 @@ function sanitize(value: unknown, depth = 0): unknown {
   if (depth > 4) return '[truncated]';
   if (value instanceof Types.ObjectId) return String(value);
   if (value instanceof Date) return value;
-  if (Array.isArray(value)) return value.slice(0, 50).map((v) => sanitize(v, depth + 1));
+
+  if (Array.isArray(value)) {
+    return value.slice(0, 50).map((v) => sanitize(v, depth + 1));
+  }
+
   if (value && typeof value === 'object') {
     return Object.fromEntries(
-      Object.entries(value).map(([k, v]) => [k, SENSITIVE_KEY.test(k) ? '[REDACTED]' : sanitize(v, depth + 1)]),
+      Object.entries(value).map(([k, v]) => [
+        k,
+        SENSITIVE_KEY.test(k) ? '[REDACTED]' : sanitize(v, depth + 1),
+      ]),
     );
   }
+
   return value;
 }
 
@@ -31,7 +40,10 @@ export interface AuditEntry {
   meta?: RequestMeta;
 }
 
-export async function recordAudit(entry: AuditEntry, session?: ClientSession): Promise<void> {
+export async function recordAudit(
+  entry: AuditEntry,
+  session?: ClientSession,
+): Promise<void> {
   try {
     await AuditLog.create(
       [
@@ -50,10 +62,14 @@ export async function recordAudit(entry: AuditEntry, session?: ClientSession): P
           },
         },
       ],
-      { session },
+      session ? { session } : {},
     );
   } catch (err) {
-    logger.error({ err, action: entry.action }, 'failed to write audit log');
-    if (session) throw err; // inside a transaction the failure must abort the unit of work
+    logger.error(
+      { err, action: entry.action },
+      'failed to write audit log',
+    );
+
+    if (session) throw err;
   }
 }

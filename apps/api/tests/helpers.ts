@@ -27,7 +27,11 @@ export async function registerUser(overrides: Partial<{ name: string; email: str
     organizationName: `Org ${counter}`,
     ...overrides,
   };
-  const res = await request(app).post(`${API}/auth/register`).send(body);
+console.time('TEST registerUser');
+
+const res = await request(app).post(`${API}/auth/register`).send(body);
+
+console.timeEnd('TEST registerUser');
   expect(res.status).toBe(201);
   return {
     body,
@@ -49,10 +53,27 @@ export const addMember = (userId: string, organizationId: string, role: MemberRo
     joinedAt: new Date(),
   });
   export const asUser = (token: string, org: string) => {
-  const call = (method: 'get' | 'post' | 'patch' | 'delete', url: string, body?: object) => {
-    const req = request(app)[method](`${API}${url}`).set(bearer(token)).set('X-Organization-Id', org);
-    return body ? req.send(body) : req;
-  };
+  
+const call = async (
+  method: 'get' | 'post' | 'patch' | 'delete',
+  url: string,
+  body?: object
+) => {
+  const started = performance.now();
+
+  const req = request(app)[method](`${API}${url}`)
+    .set(bearer(token))
+    .set('X-Organization-Id', org);
+
+  const res = await (body ? req.send(body) : req);
+
+  console.log(
+    `[TEST API] ${method.toUpperCase()} ${url}: ${(performance.now() - started).toFixed(0)}ms`
+  );
+
+  return res;
+};
+
   return {
     get: (u: string) => call('get', u),
     post: (u: string, b?: object) => call('post', u, b ?? {}),
@@ -71,3 +92,14 @@ export async function memberOf(org: string, role: 'ADMIN' | 'MANAGER' | 'AGENT')
   await addMember(u.user._id, org, role);
   return { ...u, api: asUser(u.accessToken, org) };
 }
+export const propertyBody = (o: Record<string, unknown> = {}) => ({
+  title: '3 Bed House',
+  propertyType: 'HOUSE',
+  listingType: 'SALE',
+  priceAmount: 250_000_000,
+  area: 10,
+  areaUnit: 'MARLA',
+  city: 'Lahore',
+  country: 'PK',
+  ...o,
+});

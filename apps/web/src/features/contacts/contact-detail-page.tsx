@@ -21,6 +21,7 @@ import { ContactActivityTimeline } from './contact-activity-timeline';
 import { ContactAssignDialog } from './contact-assign-dialog';
 import { ContactFormDialog } from './contact-form-dialog';
 import { useArchiveContact, useContact, useRestoreContact } from './use-contacts';
+import { RelatedDealsCard, RelatedPropertiesCard } from '@/features/deals/related-cards';
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -162,6 +163,20 @@ export function ContactDetailPage() {
               </dl>
             </CardContent>
           </Card>
+
+          {/* Related properties */}
+          <RelatedPropertiesCard ownerContactId={contact._id} />
+
+          {/* Related deals */}
+          <RelatedDealsCard
+            filter={{ contactId: contact._id }}
+            defaults={{
+              contact: {
+                id: contact._id,
+                label: contact.fullName,
+              },
+            }}
+          />
         </div>
 
         <Card className="lg:col-span-2">

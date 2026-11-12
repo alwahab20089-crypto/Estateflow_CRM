@@ -13,6 +13,8 @@ import {
 import { useRef, useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
+import { RelatedDealsCard, RelevantPropertiesCard } from '@/features/deals/related-cards';
+
 
 import { ConfirmDialog } from '@/components/common/confirm-dialog';
 import { EmptyState } from '@/components/common/empty-state';
@@ -392,6 +394,23 @@ export function LeadDetailPage() {
               </dl>
             </CardContent>
           </Card>
+
+          {/* Related deals */}
+          <RelatedDealsCard
+            filter={{ leadId: lead._id }}
+            defaults={{
+              lead: {
+                id: lead._id,
+                label: name,
+              },
+            }}
+          />
+
+          {/* Relevant properties */}
+          <RelevantPropertiesCard
+            propertyTypes={lead.interestedPropertyType}
+            locations={lead.preferredLocation}
+          />
         </div>
 
         <Card className="lg:col-span-2">

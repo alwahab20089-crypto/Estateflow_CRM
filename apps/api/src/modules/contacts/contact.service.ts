@@ -31,7 +31,20 @@ const AUDIT_SAFE_KEYS = ['contactType', 'status', 'source', 'preferredContactMet
 const can = (t: TenantContext, permission: string) => t.permissions.includes(permission);
 const canSeeAll = (t: TenantContext) => can(t, 'contacts:read_all');
 const same = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+async function measure<T>(
+  label: string,
+  fn: () => Promise<T>,
+): Promise<T> {
+  const start = performance.now();
 
+  try {
+    return await fn();
+  } finally {
+    console.log(
+      `[CONTACT TIMING] ${label}: ${(performance.now() - start).toFixed(0)}ms`,
+    );
+  }
+}
 /** Every contact query starts from the verified tenant id. Agents without contacts:read_all only see their own. */
 export function contactScope(tenant: TenantContext, userId: string, view: 'active' | 'archived' = 'active') {
   const filter: Record<string, unknown> = {
@@ -71,31 +84,69 @@ const emailInUse = () =>
 
 /* ------------------------------------------------------------------ create */
 
-export async function createContact(tenant: TenantContext, userId: string, input: CreateContactInput, meta: RequestMeta) {
+
+export async function createContact(
+  tenant: TenantContext,
+  userId: string,
+  input: CreateContactInput,
+  meta: RequestMeta,
+) {
   const canAssign = can(tenant, 'contacts:assign');
   let assignedTo = input.assignedTo ?? null;
+
   if (assignedTo && assignedTo !== userId && !canAssign) {
-    throw AppError.forbidden('You do not have permission to assign contacts to other members');
-  }
-  if (!assignedTo && !canAssign) assignedTo = userId; // agents own what they create
-  if (assignedTo) await assertActiveMember(tenant.organizationId, assignedTo);
-
-  // Email is an identity: block duplicates (org-wide, active contacts). The unique index backs this up.
-  if (input.email && (await Contact.exists({ organizationId: tenant.organizationId, email: input.email, deletedAt: null }))) {
-    throw emailInUse();
+    throw AppError.forbidden(
+      'You do not have permission to assign contacts to other members',
+    );
   }
 
-  // Phone is shared too often to block: warn, limited to contacts this user may see.
-  const phones = [input.phone, input.alternatePhone].filter((p): p is string => Boolean(p));
-  const duplicates = phones.length
-    ? await Contact.find({ ...contactScope(tenant, userId), $or: [{ phone: { $in: phones } }, { alternatePhone: { $in: phones } }] } as never)
-        .select('firstName lastName')
-        .limit(3)
-        .lean()
-    : [];
+  if (!assignedTo && !canAssign) {
+    assignedTo = userId;
+  }
+
+  if (assignedTo) {
+    await measure('assert active member', () =>
+      assertActiveMember(tenant.organizationId, assignedTo!),
+    );
+  }
+
+  // Check duplicate email.
+  if (input.email) {
+    const existingEmail = await measure('email duplicate query', () =>
+      Contact.exists({
+        organizationId: tenant.organizationId,
+        email: input.email,
+        deletedAt: null,
+      }),
+    );
+
+    if (existingEmail) {
+      throw emailInUse();
+    }
+  }
+
+  // Check duplicate phone numbers.
+  const phones = [input.phone, input.alternatePhone].filter(
+    (p): p is string => Boolean(p),
+  );
+
+  const duplicates = await measure('duplicate phone query', async () =>
+    phones.length
+      ? Contact.find({
+          ...contactScope(tenant, userId),
+          $or: [
+            { phone: { $in: phones } },
+            { alternatePhone: { $in: phones } },
+          ],
+        } as never)
+          .select('firstName lastName')
+          .limit(3)
+          .lean()
+      : [],
+  );
 
   const doc = {
-    organizationId: tenant.organizationId, // from verified server context only
+    organizationId: tenant.organizationId,
     createdBy: userId,
     assignedTo,
     firstName: input.firstName,
@@ -117,28 +168,75 @@ export async function createContact(tenant: TenantContext, userId: string, input
     notes: input.notes ?? undefined,
   };
 
-  const contact = await runUnitOfWork(async (uow) => {
-    const [created] = await Contact.create([{ ...doc, ...deriveContactFields(doc) }], { session: uow.session });
-    uow.onRollback(() => Contact.deleteOne({ _id: created!._id }));
-    await recordActivity(
-      { organizationId: tenant.organizationId, userId, entityType: 'CONTACT', entityId: created!._id, activityType: 'CREATED', description: 'Contact created' },
-      uow.session,
-    );
-    await recordAudit(
-      {
-        organizationId: tenant.organizationId, actorId: userId, action: 'contact.created', resource: 'contact', resourceId: created!._id,
-        after: { contactType: doc.contactType, status: doc.status, assignedTo }, meta,
-      },
-      uow.session,
-    );
-    return created!;
-  });
+  // Save contact, activity and audit.
+  const contact = await measure('unit of work total', () =>
+    runUnitOfWork(async (uow) => {
+      const [created] = await measure('Contact.create', () =>
+        Contact.create(
+          [{ ...doc, ...deriveContactFields(doc) }],
+          { session: uow.session },
+        ),
+      );
+
+      if (!created) {
+        throw new Error('Failed to create contact');
+      }
+
+      uow.onRollback(() =>
+        Contact.deleteOne({ _id: created._id }),
+      );
+
+      await measure('recordActivity', () =>
+        recordActivity(
+          {
+            organizationId: tenant.organizationId,
+            userId,
+            entityType: 'CONTACT',
+            entityId: created._id,
+            activityType: 'CREATED',
+            description: 'Contact created',
+          },
+          uow.session,
+        ),
+      );
+
+      await measure('recordAudit', () =>
+        recordAudit(
+          {
+            organizationId: tenant.organizationId,
+            actorId: userId,
+            action: 'contact.created',
+            resource: 'contact',
+            resourceId: created._id,
+            after: {
+              contactType: doc.contactType,
+              status: doc.status,
+              assignedTo,
+            },
+            meta,
+          },
+          uow.session,
+        ),
+      );
+
+      return created;
+    }),
+  );
+
+  // Serialize response.
+  const serialized = await measure('serialize contact', () =>
+    serializeContact(contact),
+  );
 
   return {
-    contact: await serializeContact(contact),
-    duplicates: duplicates.map((d) => ({ _id: String(d._id), name: fullName(d) })),
+    contact: serialized,
+    duplicates: duplicates.map((d) => ({
+      _id: String(d._id),
+      name: fullName(d),
+    })),
   };
 }
+
 
 /* -------------------------------------------------------------------- read */
 

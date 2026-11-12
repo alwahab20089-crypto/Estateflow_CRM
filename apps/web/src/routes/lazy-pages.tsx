@@ -72,15 +72,10 @@ export const AnalyticsPage = lazy(() =>
     .then((m) => ({ default: m.AnalyticsPage }))
 );
 
-export const PipelinePage = lazy(() =>
-  import('@/pages/pipeline-page')
-    .then((m) => ({ default: m.PipelinePage }))
-);
-
-export const PropertiesPage = lazy(() =>
-  import('@/pages/properties-page')
-    .then((m) => ({ default: m.PropertiesPage }))
-);
+export const PropertiesPage = lazy(() => import('@/features/properties/properties-page').then((m) => ({ default: m.PropertiesPage })));
+export const PropertyDetailPage = lazy(() => import('@/features/properties/property-detail-page').then((m) => ({ default: m.PropertyDetailPage })));
+export const PipelinePage = lazy(() => import('@/features/deals/pipeline-page').then((m) => ({ default: m.PipelinePage })));
+export const DealDetailPage = lazy(() => import('@/features/deals/deal-detail-page').then((m) => ({ default: m.DealDetailPage })));
 
 export const TasksPage = lazy(() =>
   import('@/pages/tasks-page')

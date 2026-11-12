@@ -1,10 +1,11 @@
 
 import type { MemberRole } from '../../constants';
 
-const CRM_RESOURCES = ['leads', 'contacts', 'properties', 'tasks', 'activities'];
+const CRM_RESOURCES = ['leads', 'contacts', 'properties', 'tasks', 'activities', 'deals'];
 
 const crm = (actions: string[]) =>
   CRM_RESOURCES.flatMap((r) => actions.map((a) => `${r}:${a}`));
+
 
 export const ALL_PERMISSIONS: string[] = [
   'org:read',
@@ -25,6 +26,11 @@ export const ALL_PERMISSIONS: string[] = [
   'leads:convert',
   'contacts:read_all',
   'contacts:assign',
+  'properties:assign',
+  'properties:manage_all',
+  'deals:read_all',
+  'deals:assign',
+  'deals:reopen',
   ...crm(['read', 'create', 'update', 'delete']),
 ];
 
@@ -49,6 +55,11 @@ const ROLE_PERMISSIONS: Record<MemberRole, string[]> = {
     'leads:convert',
     'contacts:read_all',
     'contacts:assign',
+    'properties:assign',
+    'properties:manage_all',
+    'deals:read_all',
+    'deals:assign',
+    'deals:reopen',
     ...crm(['read', 'create', 'update']),
   ],
 

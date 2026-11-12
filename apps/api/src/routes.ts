@@ -6,7 +6,8 @@ import { organizationRouter } from './modules/organizations/organization.routes'
 import { createLeadRouter } from './modules/leads/lead.routes';
 import { memberRouter } from './modules/members/member.routes';
 import { createContactRouter } from './modules/contacts/contact.routes';
-
+import { createPropertyRouter } from './modules/properties/property.routes';
+import { createDealRouter } from './modules/deals/deal.routes';
 
 export function createApiRouter(options: RateLimitOptions = {}) {
   const router = Router();
@@ -18,6 +19,8 @@ export function createApiRouter(options: RateLimitOptions = {}) {
   router.use('/organizations', organizationRouter);
   router.use('/leads', createLeadRouter(limiters));
   router.use('/contacts', createContactRouter(limiters));
+  router.use('/properties', createPropertyRouter(limiters));
+  router.use('/deals', createDealRouter(limiters));
   router.use('/members', memberRouter);
   return router;
 }

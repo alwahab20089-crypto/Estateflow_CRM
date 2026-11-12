@@ -1,4 +1,3 @@
-
 import { CalendarDays, FileText } from 'lucide-react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 
@@ -22,6 +21,8 @@ import {
   LeadsPage,
   ContactDetailPage,
   ContactsPage,
+  DealDetailPage,
+  PropertyDetailPage,
   SettingsPage,
   ActivitiesPage,
   AnalyticsPage,
@@ -160,10 +161,26 @@ export const router = createBrowserRouter([
                 ),
               },
               {
+                path: 'properties/:propertyId',
+                element: (
+                  <LazyPage>
+                    <PropertyDetailPage />
+                  </LazyPage>
+                ),
+              },
+              {
                 path: 'pipeline',
                 element: (
                   <LazyPage>
                     <PipelinePage />
+                  </LazyPage>
+                ),
+              },
+              {
+                path: 'pipeline/:dealId',
+                element: (
+                  <LazyPage>
+                    <DealDetailPage />
                   </LazyPage>
                 ),
               },

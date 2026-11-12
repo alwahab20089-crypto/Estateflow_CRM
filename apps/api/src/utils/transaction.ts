@@ -1,3 +1,4 @@
+
 import mongoose, { type ClientSession } from 'mongoose';
 import { supportsTransactions } from '../config/database';
 import { logger } from '../config/logger';
@@ -13,14 +14,22 @@ export interface UnitOfWork {
  * - Replica set / Atlas: a real MongoDB transaction.
  * - Standalone mongod: runs without a transaction and executes registered undo steps (reverse order) on failure.
  */
-export async function runUnitOfWork<T>(work: (uow: UnitOfWork) => Promise<T>): Promise<T> {
+export async function runUnitOfWork<T>(
+  work: (uow: UnitOfWork) => Promise<T>,
+): Promise<T> {
   if (supportsTransactions()) {
     const session = await mongoose.startSession();
+
     try {
       let result: T | undefined;
+
       await session.withTransaction(async () => {
-        result = await work({ session, onRollback: () => undefined });
+        result = await work({
+          session,
+          onRollback: () => undefined,
+        });
       });
+
       return result as T;
     } finally {
       await session.endSession();
@@ -28,6 +37,7 @@ export async function runUnitOfWork<T>(work: (uow: UnitOfWork) => Promise<T>): P
   }
 
   const undoSteps: Array<() => Promise<unknown>> = [];
+
   try {
     return await work({
       session: undefined,
@@ -43,6 +53,7 @@ export async function runUnitOfWork<T>(work: (uow: UnitOfWork) => Promise<T>): P
         logger.error({ err: undoErr }, 'rollback step failed');
       }
     }
+
     throw err;
   }
 }

@@ -44,6 +44,10 @@ const tones: Record<string, Tone> = {
   PENDING: 'warning',
   TRIALING: 'info',
   PAST_DUE: 'danger',
+  
+  // property / deal
+  UNDER_OFFER: 'warning', LEASED: 'neutral', DRAFT: 'neutral',
+  QUALIFICATION: 'info', PROPERTY_MATCHED: 'brand', VIEWING_SCHEDULED: 'warning', CONTRACT: 'brand',
 };
 
 export function StatusBadge({ status, className }: { status: string; className?: string }) {

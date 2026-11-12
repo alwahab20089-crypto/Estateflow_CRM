@@ -12,6 +12,7 @@ import { notFound } from './middleware/not-found';
 import type { RateLimitOptions } from './middleware/rate-limit';
 import { requestContext } from './middleware/request-context';
 import { createApiRouter } from './routes';
+import { LOCAL_UPLOAD_ROOT } from './storage/storage';
 
 export type AppOptions = RateLimitOptions;
 
@@ -25,6 +26,17 @@ export function createApp(options: AppOptions = {}) {
   app.use(cors(corsOptions));
   app.use(express.json({ limit: '100kb' }));
   app.use(cookieParser());
+  app.use(
+    '/uploads',
+    express.static(LOCAL_UPLOAD_ROOT, {
+      index: false,
+      dotfiles: 'deny',
+      setHeaders: (res) => {
+        res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+        res.setHeader('X-Content-Type-Options', 'nosniff');
+      },
+    }),
+  );
 
   app.use('/api/v1', createApiRouter(options));
 

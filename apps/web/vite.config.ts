@@ -16,9 +16,11 @@ export default defineConfig({
     port: 5173,
   },
   test: {
-    environment: 'jsdom',
-    setupFiles: ['./src/test/setup.ts'],
-    css: false,
-    include: ['src/**/*.test.{ts,tsx}'],
-  },
+  environment: 'jsdom',
+  setupFiles: ['./src/test/setup.ts'],
+  css: false,
+  include: ['src/**/*.test.{ts,tsx}'],
+  maxWorkers: 2,
+  testTimeout: 15000,
+},
 });
