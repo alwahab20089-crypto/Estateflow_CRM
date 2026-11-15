@@ -26,6 +26,10 @@ const schema = z
     TRUST_PROXY: z.coerce.number().int().min(0).default(0),
     AUTH_RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(20),
     LOGIN_FAILURE_LIMIT_MAX: z.coerce.number().int().min(1).default(5),
+    REMINDER_SCHEDULER_ENABLED: z.enum(['true', 'false']).default('true').transform((v) => v === 'true'),
+    REMINDER_POLL_INTERVAL_MS: z.coerce.number().int().min(5_000).default(60_000),
+    REMINDER_BATCH_SIZE: z.coerce.number().int().min(1).max(500).default(100),
+    REMINDER_LOCK_LEASE_MS: z.coerce.number().int().min(60_000).default(300_000),
   })
   .refine((v) => v.JWT_ACCESS_SECRET !== v.JWT_REFRESH_SECRET, {
     message: 'JWT_ACCESS_SECRET and JWT_REFRESH_SECRET must be different',

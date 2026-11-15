@@ -16,6 +16,9 @@ export const ALL_PERMISSIONS: string[] = [
   'members:update',
   'members:remove',
   'analytics:read',
+  'analytics:team',
+  'reports:read',
+  'reports:export',
   'billing:read',
   'billing:manage',
   'license:read',
@@ -31,6 +34,12 @@ export const ALL_PERMISSIONS: string[] = [
   'deals:read_all',
   'deals:assign',
   'deals:reopen',
+  'tasks:read_all',
+  'tasks:assign',
+  'tasks:restore',
+  'notifications:read',
+  'notifications:manage',
+  
   ...crm(['read', 'create', 'update', 'delete']),
 ];
 
@@ -49,6 +58,9 @@ const ROLE_PERMISSIONS: Record<MemberRole, string[]> = {
     'org:read',
     'members:read',
     'analytics:read',
+    'analytics:team',
+    'reports:read',
+    'reports:export',
     'leads:read_all',
     'leads:assign',
     'leads:reopen',
@@ -60,12 +72,22 @@ const ROLE_PERMISSIONS: Record<MemberRole, string[]> = {
     'deals:read_all',
     'deals:assign',
     'deals:reopen',
+    'tasks:read_all',
+    'tasks:assign',
+    'tasks:restore',
+    'notifications:read',
+    'notifications:manage',
+
     ...crm(['read', 'create', 'update']),
   ],
 
   AGENT: [
     'org:read',
     'leads:convert',
+    'notifications:read',
+    'notifications:manage',
+    'analytics:read',
+    'reports:read',
     ...crm(['read', 'create', 'update']),
   ],
 };

@@ -81,5 +81,7 @@ leadSchema.index({ organizationId: 1, searchKeywords: 1 });
 leadSchema.index({ organizationId: 1, phone: 1 });
 leadSchema.index({ organizationId: 1, email: 1 }, { sparse: true });
 leadSchema.index({ organizationId: 1, convertedContactId: 1 }, { sparse: true });
+leadSchema.index({ organizationId: 1, deletedAt: 1, assignedTo: 1, createdAt: -1 });
+leadSchema.index({ organizationId: 1, deletedAt: 1, convertedAt: 1 }, { sparse: true });
 export type LeadDoc = HydratedDocument<InferSchemaType<typeof leadSchema>>;
 export const Lead = model('Lead', leadSchema);

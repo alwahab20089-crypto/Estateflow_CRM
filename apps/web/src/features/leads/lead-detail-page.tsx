@@ -14,6 +14,7 @@ import { useRef, useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { RelatedDealsCard, RelevantPropertiesCard } from '@/features/deals/related-cards';
+import { RelatedTasksCard } from '@/features/tasks/related-tasks-card';
 
 
 import { ConfirmDialog } from '@/components/common/confirm-dialog';
@@ -405,6 +406,8 @@ export function LeadDetailPage() {
               },
             }}
           />
+          <RelatedTasksCard entityType="LEAD" entityId={lead._id} entityLabel={`${lead.firstName} ${lead.lastName}`.trim()} />
+
 
           {/* Relevant properties */}
           <RelevantPropertiesCard

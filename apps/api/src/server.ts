@@ -3,6 +3,8 @@ import { createApp } from './app';
 import { connectDatabase, disconnectDatabase } from './config/database';
 import { env } from './config/env';
 import { logger } from './config/logger';
+import { startReminderScheduler } from './modules/tasks/reminder.scheduler';
+
 
 async function main() {
   await connectDatabase(); // never accept requests before the database is ready
@@ -11,6 +13,9 @@ async function main() {
   const server = createApp().listen(env.PORT, () => {
     logger.info({ port: env.PORT, mode: env.DEPLOYMENT_MODE, env: env.NODE_ENV }, 'EstateFlow API listening');
   });
+  const scheduler = env.REMINDER_SCHEDULER_ENABLED
+    ? startReminderScheduler({ intervalMs: env.REMINDER_POLL_INTERVAL_MS, batchSize: env.REMINDER_BATCH_SIZE, leaseMs: env.REMINDER_LOCK_LEASE_MS })
+    : null;
 
   let shuttingDown = false;
   const shutdown = (signal: string) => {
@@ -20,6 +25,7 @@ async function main() {
     const force = setTimeout(() => process.exit(1), 10_000);
     force.unref();
     server.close(async () => {
+      await scheduler?.stop();
       await disconnectDatabase();
       process.exit(0);
     });

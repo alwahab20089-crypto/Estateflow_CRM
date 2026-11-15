@@ -1,4 +1,5 @@
-import { CalendarDays, FileText } from 'lucide-react';
+
+import { FileText } from 'lucide-react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 
 import { AppLayout } from '@/layouts/app-layout';
@@ -29,6 +30,7 @@ import {
   PipelinePage,
   PropertiesPage,
   TasksPage,
+  CalendarPage,
   TeamPage,
   LazyPage,
 } from './lazy-pages';
@@ -195,12 +197,9 @@ export const router = createBrowserRouter([
               {
                 path: 'calendar',
                 element: (
-                  <ComingSoonPage
-                    title="Calendar"
-                    description="Viewings, meetings and follow-ups in one schedule."
-                    icon={CalendarDays}
-                    message="A shared calendar with viewing scheduling is planned. For now, due dates live on each task."
-                  />
+                  <LazyPage>
+                    <CalendarPage />
+                  </LazyPage>
                 ),
               },
               {

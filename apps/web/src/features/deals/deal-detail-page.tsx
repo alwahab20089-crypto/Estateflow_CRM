@@ -23,7 +23,7 @@ import { allowedStageMoves, canCloseWon, DEAL_STAGES, isTerminal, stageLabel } f
 import { AssignDealDialog, CloseLostDialog, CloseWonDialog, ReopenDealDialog } from './deal-dialogs';
 import { DealFormDialog } from './deal-form-dialog';
 import { useDeal, useDealActivities, useDeleteDeal, useUpdateDealStage } from './use-deals';
-
+import { RelatedTasksCard } from '@/features/tasks/related-tasks-card';
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return <div><dt className="text-caption">{label}</dt><dd className="mt-0.5 break-words text-sm">{children || '—'}</dd></div>;
 }
@@ -115,12 +115,14 @@ export function DealDetailPage() {
         <div className="space-y-4">
           <Card>
             <CardHeader><CardTitle className="text-section-title">Linked records</CardTitle></CardHeader>
+
             <CardContent><dl className="space-y-3">
               <Field label="Contact">{deal.contact && <Link className="hover:underline" to={`/app/contacts/${deal.contact._id}`}>{deal.contact.fullName}</Link>}</Field>
               <Field label="Lead">{deal.lead && <Link className="hover:underline" to={`/app/leads/${deal.lead._id}`}>{deal.lead.name}</Link>}</Field>
               <Field label="Property">{deal.property && <span className="flex items-center gap-2"><Link className="hover:underline" to={`/app/properties/${deal.property._id}`}>{deal.property.title}</Link><StatusBadge status={deal.property.propertyStatus} /></span>}</Field>
             </dl></CardContent>
           </Card>
+<RelatedTasksCard entityType="DEAL" entityId={deal._id} entityLabel={deal.title} />
           <Card>
             <CardHeader><CardTitle className="text-section-title">Deal details</CardTitle></CardHeader>
             <CardContent><dl className="space-y-3">

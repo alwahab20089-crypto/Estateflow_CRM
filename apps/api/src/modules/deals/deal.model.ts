@@ -38,6 +38,8 @@ dealSchema.index({ organizationId: 1, contactId: 1 });
 dealSchema.index({ organizationId: 1, leadId: 1 });
 dealSchema.index({ organizationId: 1, expectedClosingDate: 1 });
 dealSchema.index({ organizationId: 1, searchKeywords: 1 });
+dealSchema.index({ organizationId: 1, deletedAt: 1, stage: 1, actualClosingDate: -1 });
+
 // Database-level backstop for "no two WON deals on one property", even if two closes race.
 dealSchema.index(
   { organizationId: 1, propertyId: 1 },

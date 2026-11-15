@@ -78,6 +78,8 @@ propertySchema.index({ organizationId: 1, priceAmount: 1 });
 propertySchema.index({ organizationId: 1, createdAt: -1 });
 propertySchema.index({ organizationId: 1, ownerContactId: 1 });
 propertySchema.index({ organizationId: 1, searchKeywords: 1 });
+propertySchema.index({ organizationId: 1, deletedAt: 1, propertyStatus: 1 });
+
 // No 2dsphere index: nothing queries by distance yet. Add one when "near me" search is built.
 
 export type PropertyDoc = HydratedDocument<InferSchemaType<typeof propertySchema>>;

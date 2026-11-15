@@ -77,10 +77,8 @@ export const PropertyDetailPage = lazy(() => import('@/features/properties/prope
 export const PipelinePage = lazy(() => import('@/features/deals/pipeline-page').then((m) => ({ default: m.PipelinePage })));
 export const DealDetailPage = lazy(() => import('@/features/deals/deal-detail-page').then((m) => ({ default: m.DealDetailPage })));
 
-export const TasksPage = lazy(() =>
-  import('@/pages/tasks-page')
-    .then((m) => ({ default: m.TasksPage }))
-);
+export const TasksPage = lazy(() => import('@/features/tasks/tasks-page').then((m) => ({ default: m.TasksPage })));
+export const CalendarPage = lazy(() => import('@/features/calendar/calendar-page').then((m) => ({ default: m.CalendarPage })));
 
 export const TeamPage = lazy(() =>
   import('@/pages/team-page')

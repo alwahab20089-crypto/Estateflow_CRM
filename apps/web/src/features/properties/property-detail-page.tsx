@@ -25,6 +25,7 @@ import { AREA_UNIT_LABELS, formatPrice, validateImageFiles } from './property-co
 import { PropertyAssignDialog, PropertyStatusDialog } from './property-dialogs';
 import { PropertyFormDialog } from './property-form-dialog';
 import { useDeleteProperty, useDeletePropertyImage, useProperty, usePropertyActivities, useRestoreProperty, useUploadPropertyImages } from './use-properties';
+import { RelatedTasksCard } from '@/features/tasks/related-tasks-card';
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return <div><dt className="text-caption">{label}</dt><dd className="mt-0.5 break-words text-sm">{children || '—'}</dd></div>;
@@ -232,6 +233,8 @@ export function PropertyDetailPage() {
             </dl></CardContent>
           </Card>
           <RelatedDealsCard filter={{ propertyId: property._id }} />
+        <RelatedTasksCard entityType="PROPERTY" entityId={property._id} entityLabel={property.title} />
+
         </div>
       </div>
 

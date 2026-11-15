@@ -1,3 +1,4 @@
+
 import { Badge } from '@/components/ui/badge';
 import { humanize } from '@/lib/labels';
 import { cn } from '@/lib/utils';
@@ -14,7 +15,7 @@ const toneClass: Record<Tone, string> = {
 };
 
 const tones: Record<string, Tone> = {
-  // lead status
+  // Lead status
   NEW: 'info',
   CONTACTED: 'neutral',
   QUALIFIED: 'brand',
@@ -22,37 +23,64 @@ const tones: Record<string, Tone> = {
   NEGOTIATION: 'warning',
   WON: 'success',
   LOST: 'danger',
-  // priority
+
+  // Priority
   LOW: 'neutral',
   MEDIUM: 'info',
   HIGH: 'warning',
   URGENT: 'danger',
-  // task status
+
+  // Task status
   OPEN: 'info',
   IN_PROGRESS: 'warning',
   DONE: 'success',
   CANCELLED: 'neutral',
-  // listing status
+
+  // Phase 7 task status
+  TODO: 'info',
+  COMPLETED: 'success',
+  OVERDUE: 'danger',
+
+  // Listing status
   AVAILABLE: 'success',
   RESERVED: 'warning',
   SOLD: 'neutral',
   RENTED: 'neutral',
   INACTIVE: 'neutral',
-  // generic
+
+  // Generic
   ACTIVE: 'success',
   SUSPENDED: 'danger',
   PENDING: 'warning',
   TRIALING: 'info',
   PAST_DUE: 'danger',
-  
-  // property / deal
-  UNDER_OFFER: 'warning', LEASED: 'neutral', DRAFT: 'neutral',
-  QUALIFICATION: 'info', PROPERTY_MATCHED: 'brand', VIEWING_SCHEDULED: 'warning', CONTRACT: 'brand',
+
+  // Property / deal
+  UNDER_OFFER: 'warning',
+  LEASED: 'neutral',
+  DRAFT: 'neutral',
+  QUALIFICATION: 'info',
+  PROPERTY_MATCHED: 'brand',
+  VIEWING_SCHEDULED: 'warning',
+  CONTRACT: 'brand',
 };
 
-export function StatusBadge({ status, className }: { status: string; className?: string }) {
+export function StatusBadge({
+  status,
+  className,
+}: {
+  status: string;
+  className?: string;
+}) {
   return (
-    <Badge variant="outline" className={cn('border-transparent font-medium', toneClass[tones[status] ?? 'neutral'], className)}>
+    <Badge
+      variant="outline"
+      className={cn(
+        'border-transparent font-medium',
+        toneClass[tones[status] ?? 'neutral'],
+        className,
+      )}
+    >
       {humanize(status)}
     </Badge>
   );

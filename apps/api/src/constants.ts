@@ -45,3 +45,11 @@ export const MAX_PROPERTY_IMAGES = 20;
 export const CLOSED_PROPERTY_STATUS = { SALE: 'SOLD', RENT: 'RENTED', LEASE: 'LEASED' } as const;
 /** Statuses that can still take a deal. */
 export const DEALABLE_PROPERTY_STATUSES = ['AVAILABLE', 'UNDER_OFFER', 'RESERVED'] as const;
+export const TASK_TYPES = ['CALL', 'MEETING', 'PROPERTY_VIEWING', 'FOLLOW_UP', 'EMAIL', 'DOCUMENTATION', 'GENERAL'] as const;
+export const TASK_STATUSES = ['TODO', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'] as const;
+export const OPEN_TASK_STATUSES = ['TODO', 'IN_PROGRESS'] as const;
+export const TASK_PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'] as const;
+export const TASK_RELATED_ENTITY_TYPES = ['LEAD', 'CONTACT', 'PROPERTY', 'DEAL'] as const;
+export const REMINDER_STATUSES = ['NONE', 'PENDING', 'PROCESSING', 'DELIVERED', 'CANCELLED', 'FAILED'] as const;
+export const NOTIFICATION_TYPES = ['TASK_ASSIGNED', 'TASK_REMINDER', 'TASK_OVERDUE', 'TASK_COMPLETED'] as const;
+export type NotificationType = (typeof NOTIFICATION_TYPES)[number];

@@ -597,7 +597,7 @@ export async function changeStatus(
           : {}),
       },
       {
-        new: true,
+        returnDocument: 'after',
         session: uow.session,
       },
     );

@@ -8,6 +8,10 @@ import { memberRouter } from './modules/members/member.routes';
 import { createContactRouter } from './modules/contacts/contact.routes';
 import { createPropertyRouter } from './modules/properties/property.routes';
 import { createDealRouter } from './modules/deals/deal.routes';
+import { createTaskRouter } from './modules/tasks/task.routes';
+import { createNotificationRouter } from './modules/notifications/notification.routes';
+import { createAnalyticsRouter } from './modules/analytics/analytics.routes';
+import { createReportRouter } from './modules/reports/report.routes';
 
 export function createApiRouter(options: RateLimitOptions = {}) {
   const router = Router();
@@ -21,6 +25,10 @@ export function createApiRouter(options: RateLimitOptions = {}) {
   router.use('/contacts', createContactRouter(limiters));
   router.use('/properties', createPropertyRouter(limiters));
   router.use('/deals', createDealRouter(limiters));
+  router.use('/analytics', createAnalyticsRouter());
+  router.use('/reports', createReportRouter());
   router.use('/members', memberRouter);
+  router.use('/tasks', createTaskRouter(limiters));
+  router.use('/notifications', createNotificationRouter(limiters));
   return router;
 }

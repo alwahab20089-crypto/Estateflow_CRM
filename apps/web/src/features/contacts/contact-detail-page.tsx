@@ -22,7 +22,7 @@ import { ContactAssignDialog } from './contact-assign-dialog';
 import { ContactFormDialog } from './contact-form-dialog';
 import { useArchiveContact, useContact, useRestoreContact } from './use-contacts';
 import { RelatedDealsCard, RelatedPropertiesCard } from '@/features/deals/related-cards';
-
+import { RelatedTasksCard } from '@/features/tasks/related-tasks-card';
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div>
@@ -177,6 +177,8 @@ export function ContactDetailPage() {
               },
             }}
           />
+          <RelatedTasksCard entityType="CONTACT" entityId={contact._id} entityLabel={contact.fullName} />
+
         </div>
 
         <Card className="lg:col-span-2">
