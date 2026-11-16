@@ -230,3 +230,58 @@ export async function apiRequestPaged<
 >(path: string, options: RequestOptions = {}) {
   return execute<T, M>(path, options);
 }
+/**
+ * Authenticated file download (CSV export). Same auth/org headers and single refresh-and-replay on 401 as apiRequest.
+ * A stream that the server aborts half-way rejects here, so a truncated file is never presented as a finished download.
+ */
+export async function apiDownload(path: string, signal?: AbortSignal): Promise<Blob> {
+  const send = async (token: string | null) => {
+    try {
+      return await fetch(`${API_URL}${path}`, {
+        method: 'GET',
+        signal,
+        credentials: 'include',
+        headers: {
+          'X-Requested-With': 'EstateFlow',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...(activeOrganizationId ? { 'X-Organization-Id': activeOrganizationId } : {}),
+        },
+      });
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') throw err;
+      throw new ApiError(0, 'NETWORK_ERROR', 'Unable to reach the server. Check your connection and try again.');
+    }
+  };
+
+  let response = await send(accessToken);
+
+  if (response.status === 401) {
+    let token: string;
+    try {
+      token = await refreshSession();
+    } catch (refreshErr) {
+      if (refreshErr instanceof ApiError && refreshErr.status === 401) {
+        accessToken = null;
+        onSessionExpired?.();
+      }
+      throw refreshErr;
+    }
+    response = await send(token);
+  }
+
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as {
+      message?: string;
+      code?: string;
+      errors?: ApiErrorDetail[];
+    } | null;
+    throw new ApiError(response.status, payload?.code ?? 'HTTP_ERROR', payload?.message ?? response.statusText, payload?.errors ?? []);
+  }
+
+  try {
+    return await response.blob();
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') throw err;
+    throw new ApiError(0, 'DOWNLOAD_INTERRUPTED', 'The download was interrupted before it finished. Please try again.');
+  }
+}

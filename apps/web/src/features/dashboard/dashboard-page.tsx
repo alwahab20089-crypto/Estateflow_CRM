@@ -9,6 +9,8 @@ import { RecentActivities } from './recent-activities';
 import { RecentLeadsTable } from './recent-leads-table';
 import { UpcomingFollowUps } from './upcoming-follow-ups';
 import { TaskWidgets } from './task-widgets';
+import { AnalyticsSummary } from './analytics-summary';
+
 
 export function DashboardPage() {
   const { data: user } = useCurrentUser();
@@ -21,7 +23,9 @@ export function DashboardPage() {
         description="Here's what's happening with your real estate business today."
       />
       <KpiGrid />
-            <TaskWidgets />
+      <AnalyticsSummary />
+
+      <TaskWidgets />
       <div className="grid gap-4 lg:grid-cols-3">
         <LeadGenerationChart />
         <LeadSourceChart />

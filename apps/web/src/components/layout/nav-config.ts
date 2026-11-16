@@ -1,3 +1,4 @@
+
 import {
   Activity,
   Building2,
@@ -18,7 +19,10 @@ export interface NavItem {
   label: string;
   to: string;
   icon: LucideIcon;
+  /** Hidden from the menu when the user lacks it. UX only: the API enforces permissions. */
+  permission?: string;
 }
+
 export interface NavGroup {
   label: string;
   items: NavItem[];
@@ -46,8 +50,18 @@ export const navGroups: NavGroup[] = [
   {
     label: 'Insights',
     items: [
-      { label: 'Analytics', to: '/app/analytics', icon: ChartColumn },
-      { label: 'Reports', to: '/app/reports', icon: FileText },
+      {
+        label: 'Analytics',
+        to: '/app/analytics',
+        icon: ChartColumn,
+        permission: 'analytics:read',
+      },
+      {
+        label: 'Reports',
+        to: '/app/reports',
+        icon: FileText,
+        permission: 'reports:read',
+      },
     ],
   },
   {

@@ -1,10 +1,14 @@
+
 import { NavLink } from 'react-router-dom';
+
 import { Logo } from '@/components/common/logo';
 import { UserAvatar } from '@/components/common/user-avatar';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { useActiveOrganization, useCurrentUser } from '@/hooks/use-crm-queries';
+import { useCurrentUser, useActiveOrganization } from '@/hooks/use-crm-queries';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/providers/auth-provider';
+
 import { navGroups, type NavItem } from './nav-config';
 
 interface SidebarNavProps {
@@ -12,7 +16,15 @@ interface SidebarNavProps {
   onNavigate?: () => void;
 }
 
-function SidebarLink({ item, collapsed, onNavigate }: { item: NavItem; collapsed: boolean; onNavigate?: () => void }) {
+function SidebarLink({
+  item,
+  collapsed,
+  onNavigate,
+}: {
+  item: NavItem;
+  collapsed: boolean;
+  onNavigate?: () => void;
+}) {
   const link = (
     <NavLink
       to={item.to}
@@ -32,7 +44,9 @@ function SidebarLink({ item, collapsed, onNavigate }: { item: NavItem; collapsed
       {!collapsed && <span className="truncate">{item.label}</span>}
     </NavLink>
   );
+
   if (!collapsed) return link;
+
   return (
     <Tooltip>
       <TooltipTrigger asChild>{link}</TooltipTrigger>
@@ -41,10 +55,18 @@ function SidebarLink({ item, collapsed, onNavigate }: { item: NavItem; collapsed
   );
 }
 
-function SidebarUser({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?: () => void }) {
+function SidebarUser({
+  collapsed,
+  onNavigate,
+}: {
+  collapsed: boolean;
+  onNavigate?: () => void;
+}) {
   const { data: user } = useCurrentUser();
   const { organization } = useActiveOrganization();
+
   const name = user?.name ?? 'Loading…';
+
   const link = (
     <NavLink
       to="/app/settings?tab=profile"
@@ -59,11 +81,14 @@ function SidebarUser({ collapsed, onNavigate }: { collapsed: boolean; onNavigate
       {!collapsed && (
         <div className="min-w-0">
           <p className="truncate text-sm font-medium">{name}</p>
-          <p className="truncate text-xs text-sidebar-muted">{organization?.name ?? ''}</p>
+          <p className="truncate text-xs text-sidebar-muted">
+            {organization?.name ?? ''}
+          </p>
         </div>
       )}
     </NavLink>
   );
+
   return (
     <div className="border-t border-sidebar-border p-3">
       {collapsed ? (
@@ -78,30 +103,61 @@ function SidebarUser({ collapsed, onNavigate }: { collapsed: boolean; onNavigate
   );
 }
 
-export function SidebarNav({ collapsed = false, onNavigate }: SidebarNavProps) {
+export function SidebarNav({
+  collapsed = false,
+  onNavigate,
+}: SidebarNavProps) {
+  const { can } = useAuth();
+
+  const groups = navGroups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter(
+        (item) => !item.permission || can(item.permission),
+      ),
+    }))
+    .filter((group) => group.items.length > 0);
+
   return (
     <div className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
-      <div className={cn('flex h-14 shrink-0 items-center border-b border-sidebar-border px-4', collapsed && 'justify-center px-0')}>
+      <div
+        className={cn(
+          'flex h-14 shrink-0 items-center border-b border-sidebar-border px-4',
+          collapsed && 'justify-center px-0',
+        )}
+      >
         <Logo collapsed={collapsed} />
       </div>
-      <nav aria-label="Main navigation" className="flex-1 space-y-5 overflow-y-auto px-3 py-4">
-        {navGroups.map((group, index) => (
+
+      <nav
+        aria-label="Main navigation"
+        className="flex-1 space-y-5 overflow-y-auto px-3 py-4"
+      >
+        {groups.map((group, index) => (
           <div key={group.label}>
             {collapsed ? (
               index > 0 && <Separator className="mb-3 bg-sidebar-border" />
             ) : (
-              <p className="mb-1.5 px-2.5 text-xs font-medium tracking-wider text-sidebar-muted uppercase">{group.label}</p>
+              <p className="mb-1.5 px-2.5 text-xs font-medium tracking-wider text-sidebar-muted uppercase">
+                {group.label}
+              </p>
             )}
+
             <ul className="space-y-0.5">
               {group.items.map((item) => (
                 <li key={item.to}>
-                  <SidebarLink item={item} collapsed={collapsed} onNavigate={onNavigate} />
+                  <SidebarLink
+                    item={item}
+                    collapsed={collapsed}
+                    onNavigate={onNavigate}
+                  />
                 </li>
               ))}
             </ul>
           </div>
         ))}
       </nav>
+
       <SidebarUser collapsed={collapsed} onNavigate={onNavigate} />
     </div>
   );

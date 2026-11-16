@@ -1,11 +1,9 @@
 
-import { FileText } from 'lucide-react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 
 import { AppLayout } from '@/layouts/app-layout';
 import { AuthLayout } from '@/layouts/auth-layout';
 
-import { ComingSoonPage } from '@/pages/coming-soon-page';
 import { NotFoundPage } from '@/pages/not-found-page';
 import { RouteError } from '@/pages/route-error';
 
@@ -27,6 +25,8 @@ import {
   SettingsPage,
   ActivitiesPage,
   AnalyticsPage,
+  ReportsPage,
+  ReportViewerPage,
   PipelinePage,
   PropertiesPage,
   TasksPage,
@@ -221,12 +221,17 @@ export const router = createBrowserRouter([
               {
                 path: 'reports',
                 element: (
-                  <ComingSoonPage
-                    title="Reports"
-                    description="Exportable reports for owners and managers."
-                    icon={FileText}
-                    message="Scheduled and exportable reports are planned after the core CRM modules are complete."
-                  />
+                  <LazyPage>
+                    <ReportsPage />
+                  </LazyPage>
+                ),
+              },
+              {
+                path: 'reports/:reportId',
+                element: (
+                  <LazyPage>
+                    <ReportViewerPage />
+                  </LazyPage>
                 ),
               },
               {
