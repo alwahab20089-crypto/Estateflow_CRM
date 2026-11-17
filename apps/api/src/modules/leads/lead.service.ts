@@ -7,6 +7,10 @@ import { runUnitOfWork } from '../../utils/transaction';
 import { Activity } from '../activities/activity.model';
 import { recordActivity } from '../activities/activity.service';
 import { recordAudit } from '../audit/audit.service';
+import {
+  changeKey,
+  emitEntityEvent,
+} from '../automations/automation.events';
 import { OrganizationMember } from '../members/member.model';
 import type { TenantContext } from '../members/member.service';
 import { User } from '../users/user.model';
@@ -286,6 +290,15 @@ export async function createLead(
     );
 
     return created!;
+  });
+
+  // Emit only after the lead transaction has committed.
+  await emitEntityEvent({
+    type: 'LEAD_CREATED',
+    entityType: 'LEAD',
+    entityId: lead._id,
+    organizationId: tenant.organizationId,
+    actorId: userId,
   });
 
   return {
@@ -649,6 +662,18 @@ export async function changeStatus(
     return result;
   });
 
+  // Emit only after the status-change transaction has committed.
+  await emitEntityEvent({
+    type: 'LEAD_STATUS_CHANGED',
+    entityType: 'LEAD',
+    entityId: updated._id,
+    organizationId: tenant.organizationId,
+    actorId: userId,
+    from,
+    to,
+    key: changeKey(from, to),
+  });
+
   return serialize(updated);
 }
 
@@ -724,6 +749,20 @@ export async function assignLead(
       uow.session,
     );
   });
+
+  // Only emit LEAD_ASSIGNED when a member is assigned.
+  if (assignedTo) {
+    await emitEntityEvent({
+      type: 'LEAD_ASSIGNED',
+      entityType: 'LEAD',
+      entityId: lead._id,
+      organizationId: tenant.organizationId,
+      actorId: userId,
+      from: previous,
+      to: assignedTo,
+      key: changeKey(previous, assignedTo),
+    });
+  }
 
   return serialize(lead);
 }

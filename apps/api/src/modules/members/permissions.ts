@@ -39,6 +39,15 @@ export const ALL_PERMISSIONS: string[] = [
   'tasks:restore',
   'notifications:read',
   'notifications:manage',
+  'automations:read',
+  'automations:create',
+  'automations:update',
+  'automations:delete',
+  'automations:activate',
+  'automations:execute',
+  'automations:execution_read',
+  'automations:retry',
+  'notifications:preferences_update',
   
   ...crm(['read', 'create', 'update', 'delete']),
 ];
@@ -77,6 +86,9 @@ const ROLE_PERMISSIONS: Record<MemberRole, string[]> = {
     'tasks:restore',
     'notifications:read',
     'notifications:manage',
+    'automations:read',
+    'automations:execution_read',
+    'notifications:preferences_update',
 
     ...crm(['read', 'create', 'update']),
   ],
@@ -88,6 +100,7 @@ const ROLE_PERMISSIONS: Record<MemberRole, string[]> = {
     'notifications:manage',
     'analytics:read',
     'reports:read',
+    'notifications:preferences_update',
     ...crm(['read', 'create', 'update']),
   ],
 };

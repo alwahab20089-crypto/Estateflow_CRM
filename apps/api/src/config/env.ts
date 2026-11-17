@@ -30,6 +30,10 @@ const schema = z
     REMINDER_POLL_INTERVAL_MS: z.coerce.number().int().min(5_000).default(60_000),
     REMINDER_BATCH_SIZE: z.coerce.number().int().min(1).max(500).default(100),
     REMINDER_LOCK_LEASE_MS: z.coerce.number().int().min(60_000).default(300_000),
+    AUTOMATION_ENGINE_ENABLED: z.enum(['true', 'false']).default('true').transform((v) => v === 'true'),
+    AUTOMATION_BATCH_SIZE: z.coerce.number().int().min(1).max(500).default(50),
+    AUTOMATION_MAX_DEPTH: z.coerce.number().int().min(1).max(10).default(3),
+    EMAIL_PROVIDER: z.enum(['disabled', 'log', 'memory']).default('disabled'),
   })
   .refine((v) => v.JWT_ACCESS_SECRET !== v.JWT_REFRESH_SECRET, {
     message: 'JWT_ACCESS_SECRET and JWT_REFRESH_SECRET must be different',

@@ -12,6 +12,8 @@ import { createTaskRouter } from './modules/tasks/task.routes';
 import { createNotificationRouter } from './modules/notifications/notification.routes';
 import { createAnalyticsRouter } from './modules/analytics/analytics.routes';
 import { createReportRouter } from './modules/reports/report.routes';
+import { createAutomationRouter } from './modules/automations/automation.routes';
+
 
 export function createApiRouter(options: RateLimitOptions = {}) {
   const router = Router();
@@ -30,5 +32,6 @@ export function createApiRouter(options: RateLimitOptions = {}) {
   router.use('/members', memberRouter);
   router.use('/tasks', createTaskRouter(limiters));
   router.use('/notifications', createNotificationRouter(limiters));
+  router.use('/automations', createAutomationRouter(limiters));
   return router;
 }

@@ -1,6 +1,6 @@
 import { logger } from '../../config/logger';
 import { runReminderCycle, type ProcessOptions } from './reminder.processor';
-
+import { runAutomationCycle } from '../automations/automation.engine';
 /**
  * Scheduler abstraction. The processor (reminder.processor.ts) is the real mechanism and is independent of how it is
  * triggered: this in-process poller, an external cron calling `scripts/run-reminders.ts`, or a queue worker can all call
@@ -18,7 +18,10 @@ export function startReminderScheduler(opts: { intervalMs: number } & ProcessOpt
     running = true;
     try {
       const r = await runReminderCycle(opts);
-      if (r.reminders.claimed || r.overdue.notified) logger.info(r, 'reminder cycle');
+      const a = await runAutomationCycle({ batchSize: opts.batchSize, leaseMs: opts.leaseMs });
+      if (r.reminders.claimed || r.overdue.notified || a.events || a.executions) {
+        logger.info({ ...r, automation: a }, 'scheduler cycle');
+      }
     } catch (err) {
       logger.error({ err }, 'reminder cycle failed');
     } finally {

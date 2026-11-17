@@ -8,6 +8,7 @@ import { AppError } from '../../utils/app-error';
 import type { TenantContext } from '../members/member.service';
 import { Notification } from './notification.model';
 import type { ListNotificationsQuery } from './notification.validation';
+import { isInAppEnabled } from './notification-preference.service';
 
 type Id = string | Types.ObjectId;
 
@@ -45,6 +46,7 @@ export async function createNotification(
   input: NewNotification,
   session?: ClientSession,
 ): Promise<boolean> {
+    if (!(await isInAppEnabled(input.organizationId, input.recipientUserId, input.type))) return false;
   const fields = {
     recipientUserId: input.recipientUserId,
     type: input.type,
@@ -57,6 +59,7 @@ export async function createNotification(
     readAt: null,
     deletedAt: null,
   };
+  
 
   if (!input.deliveryKey) {
     await Notification.create(

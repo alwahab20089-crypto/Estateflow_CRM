@@ -1,3 +1,4 @@
+
 import { Types } from 'mongoose';
 import { CLOSED_PROPERTY_STATUS, MAX_PROPERTY_IMAGES } from '../../constants';
 import { AppError } from '../../utils/app-error';
@@ -7,6 +8,7 @@ import { getStorage } from '../../storage/storage';
 import { Activity } from '../activities/activity.model';
 import { recordActivity } from '../activities/activity.service';
 import { recordAudit } from '../audit/audit.service';
+import { changeKey, emitEntityEvent } from '../automations/automation.events';
 import { Contact } from '../contacts/contact.model';
 import { contactScope } from '../contacts/contact.service';
 import { fullName } from '../contacts/contact.serializer';
@@ -42,7 +44,7 @@ export async function findProperty(tenant: TenantContext, id: string, opts: { ar
   const filter = propertyScope(tenant, opts.archived ? 'archived' : 'active');
   if (opts.any) delete filter.deletedAt;
   const property = await Property.findOne({ ...filter, _id: id } as never);
-  if (!property) throw AppError.notFound('Property not found'); // identical for missing and other-tenant
+  if (!property) throw AppError.notFound('Property not found');
   return property;
 }
 
@@ -56,7 +58,7 @@ function assertCanModify(tenant: TenantContext, userId: string, p: { assignedTo?
 async function assertOwnerContact(tenant: TenantContext, userId: string, contactId: string) {
   const ok = await Contact.exists({ ...contactScope(tenant, userId), _id: contactId } as never);
   if (!ok) throw AppError.validation([{ path: 'ownerContactId', message: 'The selected contact does not belong to this organization' }]);
-}
+  }
 
 function deriveKeywords(p: { title: string; city?: string | null; address?: string | null; postalCode?: string | null }) {
   const set = new Set<string>();
@@ -91,13 +93,13 @@ export async function createProperty(tenant: TenantContext, userId: string, inpu
   const canAssign = can(tenant, 'properties:assign');
   let assignedTo = input.assignedTo ?? null;
   if (assignedTo && assignedTo !== userId && !canAssign) throw AppError.forbidden('You do not have permission to assign properties to other members');
-  if (!assignedTo && !canAssign) assignedTo = userId; // agents own what they create
+  if (!assignedTo && !canAssign) assignedTo = userId;
   if (assignedTo) await assertActiveMember(tenant.organizationId, assignedTo);
   if (input.ownerContactId) await assertOwnerContact(tenant, userId, input.ownerContactId);
 
   const org = await Organization.findById(tenant.organizationId).select('currency').lean();
   const doc = {
-    organizationId: tenant.organizationId, // verified server context only
+    organizationId: tenant.organizationId,
     createdBy: userId,
     assignedTo,
     title: input.title,
@@ -140,6 +142,16 @@ export async function createProperty(tenant: TenantContext, userId: string, inpu
     );
     return created!;
   });
+
+  // Automation: property created.
+  await emitEntityEvent({
+    type: 'PROPERTY_CREATED',
+    entityType: 'PROPERTY',
+    entityId: property._id,
+    organizationId: tenant.organizationId,
+    actorId: userId,
+  });
+
   return serializeProperty(tenant, property);
 }
 
@@ -154,7 +166,7 @@ export async function listProperties(tenant: TenantContext, q: ListPropertiesQue
   if (q.propertyType) filter.propertyType = q.propertyType;
   if (q.listingType) filter.listingType = q.listingType;
   if (q.propertyStatus) filter.propertyStatus = q.propertyStatus;
-  else if (!q.includeClosed) filter.propertyStatus = { $nin: CLOSED_STATUSES }; // BR-20: closed ones leave the default listing
+  else if (!q.includeClosed) filter.propertyStatus = { $nin: CLOSED_STATUSES };
   if (q.assignedTo) filter.assignedTo = q.assignedTo === 'unassigned' ? null : q.assignedTo;
   if (q.ownerContactId) filter.ownerContactId = q.ownerContactId;
   if (q.city) filter.city = { $regex: `^${escapeRegex(q.city)}$`, $options: 'i' };
@@ -175,7 +187,6 @@ export async function listProperties(tenant: TenantContext, q: ListPropertiesQue
   const [items, total, counts] = await Promise.all([
     Property.find(filter as never).sort(sort).skip(skip).limit(q.limit).lean(),
     Property.countDocuments(filter as never),
-    // summary cards: whole active inventory, independent of the current filters
     Property.aggregate<{ _id: string; count: number }>([
       { $match: { organizationId: oid(tenant.organizationId), deletedAt: null } },
       { $group: { _id: '$propertyStatus', count: { $sum: 1 } } },
@@ -194,7 +205,6 @@ export async function listProperties(tenant: TenantContext, q: ListPropertiesQue
 export async function getProperty(tenant: TenantContext, userId: string, id: string) {
   const property = await findProperty(tenant, id, { any: can(tenant, 'properties:delete') });
 
-  // Related records are limited to what this user may already see.
   const dealFilter: Record<string, unknown> = { organizationId: oid(tenant.organizationId), propertyId: property._id, deletedAt: null };
   if (!can(tenant, 'deals:read_all')) dealFilter.$or = [{ assignedTo: oid(userId) }, { createdBy: oid(userId) }];
   const deals = can(tenant, 'deals:read')
@@ -265,18 +275,30 @@ export async function updatePropertyStatus(tenant: TenantContext, userId: string
   const previous = property.propertyStatus;
   if (previous === status) return serializeProperty(tenant, property);
 
-  // A manual closed status must match the listing type (SALE->SOLD, RENT->RENTED, LEASE->LEASED).
   if (CLOSED_STATUSES.includes(status) && CLOSED_PROPERTY_STATUS[property.listingType as keyof typeof CLOSED_PROPERTY_STATUS] !== status) {
     throw AppError.validation([{ path: 'propertyStatus', message: `A ${property.listingType} listing cannot be marked ${status}` }]);
   }
 
   await runUnitOfWork(async (uow) => {
     property.propertyStatus = status as never;
-    property.closedByDealId = null; // a manual change breaks the link to the deal that closed it
+    property.closedByDealId = null;
     await property.save({ session: uow.session });
     await recordActivity({ organizationId: tenant.organizationId, userId, entityType: 'PROPERTY', entityId: property._id, activityType: 'STATUS_CHANGE', description: `Status changed from ${previous} to ${status}`, metadata: { from: previous, to: status } }, uow.session);
     await recordAudit({ organizationId: tenant.organizationId, actorId: userId, action: 'property.status_changed', resource: 'property', resourceId: property._id, before: { propertyStatus: previous }, after: { propertyStatus: status }, meta }, uow.session);
   });
+
+  // Automation: property status changed.
+  await emitEntityEvent({
+    type: 'PROPERTY_STATUS_CHANGED',
+    entityType: 'PROPERTY',
+    entityId: property._id,
+    organizationId: tenant.organizationId,
+    actorId: userId,
+    from: previous,
+    to: status,
+    key: changeKey(previous, status),
+  });
+
   return serializeProperty(tenant, property);
 }
 
@@ -296,6 +318,19 @@ export async function assignProperty(tenant: TenantContext, userId: string, id: 
     await recordActivity({ organizationId: tenant.organizationId, userId, entityType: 'PROPERTY', entityId: property._id, activityType: 'ASSIGNMENT', description, metadata: { from: previous, to: assignedTo, assignedBy: userId } }, uow.session);
     await recordAudit({ organizationId: tenant.organizationId, actorId: userId, action: 'property.assigned', resource: 'property', resourceId: property._id, before: { assignedTo: previous }, after: { assignedTo }, meta }, uow.session);
   });
+
+  // Automation: property assigned or reassigned.
+  await emitEntityEvent({
+    type: 'PROPERTY_ASSIGNED',
+    entityType: 'PROPERTY',
+    entityId: property._id,
+    organizationId: tenant.organizationId,
+    actorId: userId,
+    from: previous,
+    to: assignedTo,
+    key: changeKey(previous, assignedTo),
+  });
+
   return serializeProperty(tenant, property);
 }
 
@@ -338,7 +373,7 @@ export async function addImages(tenant: TenantContext, userId: string, id: strin
   if (property.images.length + files.length > MAX_PROPERTY_IMAGES) {
     throw AppError.validation([{ path: 'images', message: `A property can have at most ${MAX_PROPERTY_IMAGES} images` }]);
   }
-  const validated = files.map((f, i) => validateImage(f, i)); // validate everything before storing anything
+  const validated = files.map((f, i) => validateImage(f, i));
 
   const storage = getStorage();
   const stored: Array<{ _id: Types.ObjectId; key: string; url: string; mimeType: string; size: number; originalName: string; uploadedBy: string; uploadedAt: Date }> = [];
@@ -348,7 +383,6 @@ export async function addImages(tenant: TenantContext, userId: string, id: strin
       const { url } = await storage.put(key, img.buffer, img.mimeType);
       stored.push({ _id: new Types.ObjectId(), key, url, mimeType: img.mimeType, size: img.size, originalName: img.originalName, uploadedBy: userId, uploadedAt: new Date() });
     }
-    // The positional guard makes the 20-image cap race-safe: index (MAX - n) must not exist yet.
     const res = await Property.updateOne(
       { _id: property._id, organizationId: tenant.organizationId, deletedAt: null, [`images.${MAX_PROPERTY_IMAGES - stored.length}`]: { $exists: false } },
       { $push: { images: { $each: stored } } },
@@ -356,7 +390,7 @@ export async function addImages(tenant: TenantContext, userId: string, id: strin
     if (res.matchedCount === 0) throw AppError.conflict('Image limit reached or the property changed. Refresh and try again.', 'IMAGE_LIMIT');
     await Property.updateOne({ _id: property._id, primaryImage: null }, { $set: { primaryImage: stored[0]!._id } });
   } catch (err) {
-    await Promise.allSettled(stored.map((s) => storage.delete(s.key))); // no orphaned files
+    await Promise.allSettled(stored.map((s) => storage.delete(s.key)));
     throw err;
   }
 
@@ -377,7 +411,7 @@ export async function removeImage(tenant: TenantContext, userId: string, id: str
     { _id: property._id, organizationId: tenant.organizationId },
     { $pull: { images: { _id: image._id } }, ...(wasPrimary ? { $set: { primaryImage: remaining[0]?._id ?? null } } : {}) },
   );
-  await getStorage().delete(image.key).catch(() => undefined); // DB is the source of truth; a leftover file is harmless
+  await getStorage().delete(image.key).catch(() => undefined);
 
   await recordActivity({ organizationId: tenant.organizationId, userId, entityType: 'PROPERTY', entityId: property._id, activityType: 'UPDATE', description: 'Removed an image' });
   await recordAudit({ organizationId: tenant.organizationId, actorId: userId, action: 'property.image_removed', resource: 'property', resourceId: property._id, meta });

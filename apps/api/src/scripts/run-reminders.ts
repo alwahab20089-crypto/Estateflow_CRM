@@ -1,13 +1,20 @@
+
 import mongoose from 'mongoose';
 import { connectDatabase, disconnectDatabase } from '../config/database';
 import { logger } from '../config/logger';
 import { runReminderCycle } from '../modules/tasks/reminder.processor';
+import { runAutomationCycle } from '../modules/automations/automation.engine';
 
 async function main() {
   await connectDatabase();
+
   await Promise.all(Object.values(mongoose.models).map((m) => m.init()));
+
   const result = await runReminderCycle();
-  logger.info(result, 'reminder run complete');
+  const automation = await runAutomationCycle();
+
+  logger.info({ ...result, automation }, 'reminder run complete');
+
   await disconnectDatabase();
 }
 

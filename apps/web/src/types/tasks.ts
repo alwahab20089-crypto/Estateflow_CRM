@@ -88,8 +88,11 @@ export interface TaskSummaryDto {
 }
 
 export interface NotificationDto {
+  type:
+  | 'TASK_ASSIGNED' | 'TASK_REMINDER' | 'TASK_OVERDUE' | 'TASK_COMPLETED'
+  | 'TASK_DUE_SOON' | 'LEAD_ASSIGNED' | 'DEAL_ASSIGNED' | 'DEAL_WON' | 'DEAL_LOST'
+  | 'PROPERTY_STATUS_CHANGED' | 'AUTOMATION' | 'AUTOMATION_COMPLETED' | 'AUTOMATION_FAILED';
   _id: string;
-  type: 'TASK_ASSIGNED' | 'TASK_REMINDER' | 'TASK_OVERDUE' | 'TASK_COMPLETED';
   title: string;
   message: string;
   relatedEntityType: TaskRelatedType | null;

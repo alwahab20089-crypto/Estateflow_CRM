@@ -1,3 +1,4 @@
+
 import type { Types } from 'mongoose';
 import { AppError } from '../../utils/app-error';
 import type { RequestMeta } from '../../utils/request-meta';
@@ -5,6 +6,7 @@ import { runUnitOfWork } from '../../utils/transaction';
 import { Activity } from '../activities/activity.model';
 import { recordActivity } from '../activities/activity.service';
 import { recordAudit } from '../audit/audit.service';
+import { changeKey, emitEntityEvent } from '../automations/automation.events';
 import { Lead } from '../leads/lead.model';
 import { buildSearchFilter } from '../leads/lead.search';
 import type { UserBrief } from '../leads/lead.serializer';
@@ -31,6 +33,7 @@ const AUDIT_SAFE_KEYS = ['contactType', 'status', 'source', 'preferredContactMet
 const can = (t: TenantContext, permission: string) => t.permissions.includes(permission);
 const canSeeAll = (t: TenantContext) => can(t, 'contacts:read_all');
 const same = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+
 async function measure<T>(
   label: string,
   fn: () => Promise<T>,
@@ -45,6 +48,7 @@ async function measure<T>(
     );
   }
 }
+
 /** Every contact query starts from the verified tenant id. Agents without contacts:read_all only see their own. */
 export function contactScope(tenant: TenantContext, userId: string, view: 'active' | 'archived' = 'active') {
   const filter: Record<string, unknown> = {
@@ -59,7 +63,7 @@ export async function findContact(tenant: TenantContext, userId: string, id: str
   const filter = contactScope(tenant, userId, opts.archived ? 'archived' : 'active');
   if (opts.any) delete filter.deletedAt;
   const contact = await Contact.findOne({ ...filter, _id: id } as never);
-  if (!contact) throw AppError.notFound('Contact not found'); // identical for missing, other tenant and not yours
+  if (!contact) throw AppError.notFound('Contact not found');
   return contact;
 }
 
@@ -83,7 +87,6 @@ const emailInUse = () =>
   new AppError(409, 'A contact with this email already exists.', 'EMAIL_IN_USE', [{ path: 'email', message: 'A contact with this email already exists' }]);
 
 /* ------------------------------------------------------------------ create */
-
 
 export async function createContact(
   tenant: TenantContext,
@@ -223,6 +226,15 @@ export async function createContact(
     }),
   );
 
+  // Emit automation event only after the contact has been persisted.
+  await emitEntityEvent({
+    type: 'CONTACT_CREATED',
+    entityType: 'CONTACT',
+    entityId: contact._id,
+    organizationId: tenant.organizationId,
+    actorId: userId,
+  });
+
   // Serialize response.
   const serialized = await measure('serialize contact', () =>
     serializeContact(contact),
@@ -236,7 +248,6 @@ export async function createContact(
     })),
   };
 }
-
 
 /* -------------------------------------------------------------------- read */
 
@@ -256,7 +267,7 @@ export async function listContacts(tenant: TenantContext, userId: string, q: Lis
   if (q.search) Object.assign(filter, buildSearchFilter(q.search) ?? {});
 
   const dir = q.sortOrder === 'asc' ? 1 : -1;
-  const sort = { [SORT_FIELDS[q.sortBy]]: dir, _id: dir } as Record<string, 1 | -1>; // _id: stable pagination
+  const sort = { [SORT_FIELDS[q.sortBy]]: dir, _id: dir } as Record<string, 1 | -1>;
   const skip = (q.page - 1) * q.limit;
   if (skip > MAX_SKIP) throw AppError.validation([{ path: 'page', message: 'Page is too deep. Narrow your filters instead.' }]);
 
@@ -272,10 +283,8 @@ export async function listContacts(tenant: TenantContext, userId: string, q: Lis
 }
 
 export async function getContact(tenant: TenantContext, userId: string, id: string) {
-  // Users who may archive contacts can also open archived ones (to restore them).
   const contact = await findContact(tenant, userId, id, { any: can(tenant, 'contacts:delete') });
 
-  // Leads converted into / linked to this contact, limited to what this user may see.
   const leadFilter: Record<string, unknown> = { organizationId: tenant.organizationId, deletedAt: null, convertedContactId: contact._id };
   if (!can(tenant, 'leads:read_all')) leadFilter.assignedTo = userId;
   const leads = can(tenant, 'leads:read')
@@ -313,7 +322,7 @@ export async function updateContact(tenant: TenantContext, userId: string, id: s
 
   for (const key of keys) {
     const value = input[key];
-    contact.set(key, value === null ? undefined : value); // null clears the field
+    contact.set(key, value === null ? undefined : value);
   }
   if (!contact.email && !contact.phone) {
     throw AppError.validation([{ path: 'phone', message: 'A contact needs a phone number or an email' }]);
@@ -325,7 +334,7 @@ export async function updateContact(tenant: TenantContext, userId: string, id: s
   if (changed.length === 0) return serializeContact(contact);
 
   await runUnitOfWork(async (uow) => {
-    await contact.save({ session: uow.session }); // schema validators run here
+    await contact.save({ session: uow.session });
     await recordActivity(
       {
         organizationId: tenant.organizationId, userId, entityType: 'CONTACT', entityId: contact._id, activityType: 'UPDATE',
@@ -341,6 +350,17 @@ export async function updateContact(tenant: TenantContext, userId: string, id: s
       uow.session,
     );
   });
+
+  // Emit automation event only after the update has been persisted.
+  await emitEntityEvent({
+    type: 'CONTACT_UPDATED',
+    entityType: 'CONTACT',
+    entityId: contact._id,
+    organizationId: tenant.organizationId,
+    actorId: userId,
+    key: changeKey('', String(Date.now())),
+  });
+
   return serializeContact(contact);
 }
 
@@ -373,6 +393,7 @@ export async function assignContact(tenant: TenantContext, userId: string, id: s
       uow.session,
     );
   });
+
   return serializeContact(contact);
 }
 
@@ -385,7 +406,7 @@ export async function archiveContact(tenant: TenantContext, userId: string, id: 
     await recordActivity({ organizationId: tenant.organizationId, userId, entityType: 'CONTACT', entityId: contact._id, activityType: 'UPDATE', description: 'Contact archived' }, uow.session);
     await recordAudit({ organizationId: tenant.organizationId, actorId: userId, action: 'contact.archived', resource: 'contact', resourceId: contact._id, meta }, uow.session);
   });
-  return serializeContact(contact); // nothing is hard-deleted; history is preserved
+  return serializeContact(contact);
 }
 
 export async function restoreContact(tenant: TenantContext, userId: string, id: string, meta: RequestMeta) {
@@ -429,19 +450,18 @@ export async function addNote(tenant: TenantContext, userId: string, id: string,
 
 export async function listActivities(tenant: TenantContext, userId: string, id: string, q: ActivitiesQuery) {
   const contact = await findContact(tenant, userId, id, { any: can(tenant, 'contacts:delete') });
-const filter = {
-  organizationId: tenant.organizationId,
-  entityType: 'CONTACT' as const,
-  entityId: contact._id,
-  ...(q.type ? { activityType: q.type } : {}),
-};
+  const filter = {
+    organizationId: tenant.organizationId,
+    entityType: 'CONTACT' as const,
+    entityId: contact._id,
+    ...(q.type ? { activityType: q.type } : {}),
+  };
   const [items, total] = await Promise.all([
-   Activity.find(filter as never)
-  .sort({ createdAt: -1, _id: -1 })
-  .skip((q.page - 1) * q.limit)
-  .limit(q.limit),
-
-Activity.countDocuments(filter as never),
+    Activity.find(filter as never)
+      .sort({ createdAt: -1, _id: -1 })
+      .skip((q.page - 1) * q.limit)
+      .limit(q.limit),
+    Activity.countDocuments(filter as never),
   ]);
   const users = await loadUsers(items.map((a) => a.userId));
   return {

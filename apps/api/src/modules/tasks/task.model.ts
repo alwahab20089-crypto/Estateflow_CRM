@@ -1,3 +1,4 @@
+
 import { model, Schema, type HydratedDocument, type InferSchemaType } from 'mongoose';
 import {
   REMINDER_STATUSES, TASK_PRIORITIES, TASK_RELATED_ENTITY_TYPES, TASK_STATUSES, TASK_TYPES,
@@ -19,6 +20,10 @@ const taskSchema = new Schema(
     completedAt: { type: Date, default: null },
     assignedTo: { type: Schema.Types.ObjectId, ref: 'User', default: null },
     createdBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+
+    // Idempotency key for tasks created by automations.
+    // Format: auto:<executionId>:<actionIndex>
+    automationKey: { type: String, maxlength: 120 },
 
     // One polymorphic link instead of four duplicate relatedXxxId columns.
     relatedEntityType: { type: String, enum: [...TASK_RELATED_ENTITY_TYPES, null], default: null },
@@ -67,6 +72,17 @@ taskSchema.index({ organizationId: 1, status: 1, priority: 1 });
 taskSchema.index({ organizationId: 1, relatedEntityType: 1, relatedEntityId: 1 });
 taskSchema.index({ organizationId: 1, reminderAt: 1 });
 taskSchema.index({ organizationId: 1, searchKeywords: 1 });
+
+// Unique idempotency key for automation-created tasks.
+taskSchema.index(
+  { organizationId: 1, automationKey: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { automationKey: { $type: 'string' } },
+    name: 'unique_automation_key',
+  },
+);
+
 // Reminder worker queries
 taskSchema.index({ reminderStatus: 1, reminderNextAttemptAt: 1 });
 taskSchema.index({ reminderStatus: 1, reminderLockedAt: 1 });

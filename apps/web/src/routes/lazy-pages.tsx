@@ -85,6 +85,9 @@ export const TeamPage = lazy(() =>
   import('@/pages/team-page')
     .then((m) => ({ default: m.TeamPage }))
 );
+export const AutomationsPage = lazy(() => import('@/features/automations/automations-page').then((m) => ({ default: m.AutomationsPage })));
+export const AutomationBuilderPage = lazy(() => import('@/features/automations/automation-builder-page').then((m) => ({ default: m.AutomationBuilderPage })));
+export const ExecutionHistoryPage = lazy(() => import('@/features/automations/execution-history-page').then((m) => ({ default: m.ExecutionHistoryPage })));
 
 // Shared loading wrapper
 export function LazyPage({ children }: { children: ReactNode }) {

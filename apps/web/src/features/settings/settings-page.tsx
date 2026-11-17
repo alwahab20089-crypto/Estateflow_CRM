@@ -1,4 +1,3 @@
-import { Building2, CreditCard, Palette, User, UsersRound } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { PageHeader } from '@/components/common/page-header';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -7,11 +6,14 @@ import { OrganizationSettings } from './organization-settings';
 import { ProfileSettings } from './profile-settings';
 import { SubscriptionSettings } from './subscription-settings';
 import { TeamSettings } from './team-settings';
+import { Bell, Building2, CreditCard, Palette, User, UsersRound } from 'lucide-react';
+import { NotificationPreferences } from './notification-preferences';
 
 const tabs = [
   { value: 'organization', label: 'Organization', icon: Building2 },
   { value: 'profile', label: 'Profile', icon: User },
   { value: 'appearance', label: 'Appearance', icon: Palette },
+  { value: 'notifications', label: 'Notifications', icon: Bell },
   { value: 'team', label: 'Team', icon: UsersRound },
   { value: 'subscription', label: 'Subscription', icon: CreditCard },
 ] as const;
@@ -38,6 +40,7 @@ export function SettingsPage() {
         <TabsContent value="profile"><ProfileSettings /></TabsContent>
         <TabsContent value="appearance"><AppearanceSettings /></TabsContent>
         <TabsContent value="team"><TeamSettings /></TabsContent>
+       <TabsContent value="notifications"><NotificationPreferences /></TabsContent>
         <TabsContent value="subscription"><SubscriptionSettings /></TabsContent>
       </Tabs>
     </>

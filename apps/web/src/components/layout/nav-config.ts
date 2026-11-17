@@ -12,6 +12,7 @@ import {
   Settings,
   Target,
   UsersRound,
+  Workflow,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -45,6 +46,12 @@ export const navGroups: NavGroup[] = [
       { label: 'Tasks', to: '/app/tasks', icon: ListChecks },
       { label: 'Calendar', to: '/app/calendar', icon: CalendarDays },
       { label: 'Activities', to: '/app/activities', icon: Activity },
+      {
+        label: 'Automations',
+        to: '/app/automations',
+        icon: Workflow,
+        permission: 'automations:read',
+      },
     ],
   },
   {

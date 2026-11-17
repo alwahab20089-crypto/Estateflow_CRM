@@ -1,3 +1,4 @@
+
 import { Types, type ClientSession } from 'mongoose';
 import { OPEN_TASK_STATUSES, type NotificationType } from '../../constants';
 import { AppError } from '../../utils/app-error';
@@ -6,6 +7,7 @@ import { runUnitOfWork } from '../../utils/transaction';
 import { Activity } from '../activities/activity.model';
 import { recordActivity } from '../activities/activity.service';
 import { recordAudit } from '../audit/audit.service';
+import { changeKey, emitEntityEvent } from '../automations/automation.events';
 import { Contact } from '../contacts/contact.model';
 import { fullName } from '../contacts/contact.serializer';
 import { contactScope } from '../contacts/contact.service';
@@ -16,8 +18,7 @@ import { buildSearchFilter } from '../leads/lead.search';
 import type { UserBrief } from '../leads/lead.serializer';
 import type { ActivitiesQuery } from '../leads/lead.validation';
 import { assertActiveMember, type TenantContext } from '../members/member.service';
-import { createNotification,   type RelatedEntityType,
- } from '../notifications/notification.service';
+import { createNotification, type RelatedEntityType } from '../notifications/notification.service';
 import { Property } from '../properties/property.model';
 import { propertyScope } from '../properties/property.service';
 import { User } from '../users/user.model';
@@ -188,14 +189,14 @@ export function syncReminder(task: TaskDoc, reminderAtChanged: boolean, now = ne
 /* ------------------------------------------------------------- side effects */
 
 const notifyTask = (
-type: NotificationType,
-recipientUserId: Id,
-task: {
-  _id: Id;
-  organizationId: Id;
-  relatedEntityType?: RelatedEntityType;
-  relatedEntityId?: Id | null;
-},
+  type: NotificationType,
+  recipientUserId: Id,
+  task: {
+    _id: Id;
+    organizationId: Id;
+    relatedEntityType?: RelatedEntityType;
+    relatedEntityId?: Id | null;
+  },
   title: string, message: string, session?: ClientSession,
 ) =>
   createNotification(
@@ -257,6 +258,28 @@ export async function createTask(tenant: TenantContext, userId: string, input: C
     }
     return created!;
   });
+
+  await emitEntityEvent({
+    type: 'TASK_CREATED',
+    entityType: 'TASK',
+    entityId: task._id,
+    organizationId: tenant.organizationId,
+    actorId: userId,
+  });
+
+  if (assignedTo !== userId) {
+    await emitEntityEvent({
+      type: 'TASK_ASSIGNED',
+      entityType: 'TASK',
+      entityId: task._id,
+      organizationId: tenant.organizationId,
+      actorId: userId,
+      from: null,
+      to: assignedTo,
+      key: changeKey(null, assignedTo),
+    });
+  }
+
   return serializeTask(tenant, task);
 }
 
@@ -426,6 +449,17 @@ async function applyStatus(tenant: TenantContext, userId: string, task: TaskDoc,
       }
     }
   });
+
+  if (status === 'COMPLETED') {
+    await emitEntityEvent({
+      type: 'TASK_COMPLETED',
+      entityType: 'TASK',
+      entityId: task._id,
+      organizationId: tenant.organizationId,
+      actorId: userId,
+      key: 'once',
+    });
+  }
 }
 
 export async function changeStatus(tenant: TenantContext, userId: string, id: string, input: TaskStatusInput, meta: RequestMeta) {
@@ -464,6 +498,18 @@ export async function assignTask(tenant: TenantContext, userId: string, id: stri
       await notifyTask('TASK_ASSIGNED', assignedTo, task, `New task assigned: ${task.title}`, 'A task was assigned to you.', uow.session);
     }
   });
+
+  await emitEntityEvent({
+    type: 'TASK_ASSIGNED',
+    entityType: 'TASK',
+    entityId: task._id,
+    organizationId: tenant.organizationId,
+    actorId: userId,
+    from: previous,
+    to: assignedTo,
+    key: changeKey(previous, assignedTo),
+  });
+
   return serializeTask(tenant, task);
 }
 

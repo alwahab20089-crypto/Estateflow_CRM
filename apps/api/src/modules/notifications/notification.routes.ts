@@ -6,6 +6,10 @@ import { requireMembership } from '../../middleware/require-membership';
 import { resolveOrganization } from '../../middleware/resolve-organization';
 import { requireObjectIdParam } from '../../utils/require-object-id';
 import * as controller from './notification.controller';
+import { validate } from '../../middleware/validate';
+import * as prefs from './notification-preference.controller';
+import { updatePreferencesSchema } from './notification-preference.validation';
+
 
 export function createNotificationRouter(limiters: RateLimiters) {
   const router = Router();
@@ -19,5 +23,7 @@ export function createNotificationRouter(limiters: RateLimiters) {
   router.patch('/read-all', authorize('notifications:manage'), controller.markAllRead);
   router.patch('/:id/read', id, authorize('notifications:manage'), controller.markRead);
   router.delete('/:id', id, authorize('notifications:manage'), controller.remove);
+  router.get('/preferences', authorize('notifications:read'), prefs.get);
+  router.patch('/preferences', authorize('notifications:preferences_update'), validate({ body: updatePreferencesSchema }), prefs.update);
   return router;
 }

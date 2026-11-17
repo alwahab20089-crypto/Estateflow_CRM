@@ -6,6 +6,7 @@ import { runUnitOfWork } from '../../utils/transaction';
 import { Activity } from '../activities/activity.model';
 import { recordActivity } from '../activities/activity.service';
 import { recordAudit } from '../audit/audit.service';
+import { changeKey, emitEntityEvent } from '../automations/automation.events';
 import { Contact } from '../contacts/contact.model';
 import { contactScope } from '../contacts/contact.service';
 import { fullName } from '../contacts/contact.serializer';
@@ -143,6 +144,15 @@ export async function createDeal(tenant: TenantContext, userId: string, input: C
     await recordAudit({ organizationId: tenant.organizationId, actorId: userId, action: 'deal.created', resource: 'deal', resourceId: created!._id, after: { ...pick(doc, AUDIT_KEYS), assignedTo, propertyId: input.propertyId }, meta }, uow.session);
     return created!;
   });
+
+  await emitEntityEvent({
+    type: 'DEAL_CREATED',
+    entityType: 'DEAL',
+    entityId: deal._id,
+    organizationId: tenant.organizationId,
+    actorId: userId,
+  });
+
   return serializeDeal(tenant, deal);
 }
 
@@ -253,6 +263,18 @@ export async function changeStage(tenant: TenantContext, userId: string, id: str
     await recordAudit({ organizationId: tenant.organizationId, actorId: userId, action: 'deal.stage_changed', resource: 'deal', resourceId: deal._id, before: { stage: from }, after: { stage: input.stage, probability }, meta }, uow.session);
     return doc;
   });
+
+  await emitEntityEvent({
+    type: 'DEAL_STAGE_CHANGED',
+    entityType: 'DEAL',
+    entityId: deal._id,
+    organizationId: tenant.organizationId,
+    actorId: userId,
+    from,
+    to: input.stage,
+    key: changeKey(from, input.stage),
+  });
+
   return serializeDeal(tenant, updated);
 }
 
@@ -272,6 +294,18 @@ export async function assignDeal(tenant: TenantContext, userId: string, id: stri
     await recordActivity({ organizationId: tenant.organizationId, userId, entityType: 'DEAL', entityId: deal._id, activityType: 'ASSIGNMENT', description, metadata: { from: previous, to: assignedTo, assignedBy: userId } }, uow.session);
     await recordAudit({ organizationId: tenant.organizationId, actorId: userId, action: 'deal.assigned', resource: 'deal', resourceId: deal._id, before: { assignedTo: previous }, after: { assignedTo }, meta }, uow.session);
   });
+
+  await emitEntityEvent({
+    type: 'DEAL_ASSIGNED',
+    entityType: 'DEAL',
+    entityId: deal._id,
+    organizationId: tenant.organizationId,
+    actorId: userId,
+    from: previous,
+    to: assignedTo,
+    key: changeKey(previous, assignedTo),
+  });
+
   return serializeDeal(tenant, deal);
 }
 
@@ -307,6 +341,7 @@ export async function closeWon(tenant: TenantContext, userId: string, id: string
   const value = input.valueAmount ?? deal.valueAmount;
   const closedStatus = CLOSED_PROPERTY_STATUS[deal.dealType as keyof typeof CLOSED_PROPERTY_STATUS];
   const from = deal.stage;
+  let previousPropertyStatus: string | undefined;
 
   try {
     await runUnitOfWork(async (uow) => {
@@ -318,6 +353,7 @@ export async function closeWon(tenant: TenantContext, userId: string, id: string
       if (!previousProperty) {
         throw AppError.conflict('This property is no longer available (it may already be sold, rented, leased or archived).', 'PROPERTY_NOT_AVAILABLE');
       }
+      previousPropertyStatus = previousProperty.propertyStatus;
       uow.onRollback(() => Property.updateOne({ _id: deal.propertyId, closedByDealId: deal._id }, { $set: { propertyStatus: previousProperty.propertyStatus, closedByDealId: null } }));
 
       const won = await Deal.findOneAndUpdate(
@@ -336,6 +372,40 @@ export async function closeWon(tenant: TenantContext, userId: string, id: string
     if (isDuplicateKey(err)) throw AppError.conflict('Another deal has already been won for this property.', 'PROPERTY_NOT_AVAILABLE');
     throw err;
   }
+
+  await emitEntityEvent({
+    type: 'DEAL_STAGE_CHANGED',
+    entityType: 'DEAL',
+    entityId: deal._id,
+    organizationId: tenant.organizationId,
+    actorId: userId,
+    from,
+    to: 'WON',
+    key: changeKey(from, 'WON'),
+  });
+
+  await emitEntityEvent({
+    type: 'DEAL_WON',
+    entityType: 'DEAL',
+    entityId: deal._id,
+    organizationId: tenant.organizationId,
+    actorId: userId,
+    key: 'once',
+  });
+
+  if (previousPropertyStatus) {
+    await emitEntityEvent({
+      type: 'PROPERTY_STATUS_CHANGED',
+      entityType: 'PROPERTY',
+      entityId: deal.propertyId,
+      organizationId: tenant.organizationId,
+      actorId: userId,
+      from: previousPropertyStatus,
+      to: closedStatus,
+      key: changeKey(previousPropertyStatus, closedStatus),
+    });
+  }
+
   return getDeal(tenant, userId, id);
 }
 
@@ -354,6 +424,27 @@ export async function closeLost(tenant: TenantContext, userId: string, id: strin
     await recordActivity({ organizationId: tenant.organizationId, userId, entityType: 'DEAL', entityId: deal._id, activityType: 'STATUS_CHANGE', description: 'Deal closed as lost', metadata: { from, to: 'LOST', lostReason } }, uow.session);
     await recordAudit({ organizationId: tenant.organizationId, actorId: userId, action: 'deal.lost', resource: 'deal', resourceId: deal._id, before: { stage: from }, after: { stage: 'LOST', lostReason }, meta }, uow.session);
   });
+
+  await emitEntityEvent({
+    type: 'DEAL_STAGE_CHANGED',
+    entityType: 'DEAL',
+    entityId: deal._id,
+    organizationId: tenant.organizationId,
+    actorId: userId,
+    from,
+    to: 'LOST',
+    key: changeKey(from, 'LOST'),
+  });
+
+  await emitEntityEvent({
+    type: 'DEAL_LOST',
+    entityType: 'DEAL',
+    entityId: deal._id,
+    organizationId: tenant.organizationId,
+    actorId: userId,
+    key: 'once',
+  });
+
   return getDeal(tenant, userId, id);
 }
 
@@ -392,6 +483,18 @@ export async function reopenDeal(tenant: TenantContext, userId: string, id: stri
     await recordActivity({ organizationId: tenant.organizationId, userId, entityType: 'DEAL', entityId: deal._id, activityType: 'STATUS_CHANGE', description: `Deal reopened: ${reason}`, metadata: { from: old.stage, to: REOPEN_STAGE, reason, propertyReleased: released } }, uow.session);
     await recordAudit({ organizationId: tenant.organizationId, actorId: userId, action: 'deal.reopened', resource: 'deal', resourceId: deal._id, before: { stage: old.stage }, after: { stage: REOPEN_STAGE, reason, propertyReleased: released }, meta }, uow.session);
   });
+
+  await emitEntityEvent({
+    type: 'DEAL_STAGE_CHANGED',
+    entityType: 'DEAL',
+    entityId: deal._id,
+    organizationId: tenant.organizationId,
+    actorId: userId,
+    from: old.stage,
+    to: REOPEN_STAGE,
+    key: changeKey(String(old.stage), REOPEN_STAGE),
+  });
+
   return getDeal(tenant, userId, id);
 }
 
