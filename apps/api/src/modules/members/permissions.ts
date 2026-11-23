@@ -1,4 +1,3 @@
-
 import type { MemberRole } from '../../constants';
 
 const CRM_RESOURCES = ['leads', 'contacts', 'properties', 'tasks', 'activities', 'deals'];
@@ -19,8 +18,6 @@ export const ALL_PERMISSIONS: string[] = [
   'analytics:team',
   'reports:read',
   'reports:export',
-  'billing:read',
-  'billing:manage',
   'license:read',
   'license:manage',
   'leads:read_all',
@@ -55,11 +52,10 @@ export const ALL_PERMISSIONS: string[] = [
 const ROLE_PERMISSIONS: Record<MemberRole, string[]> = {
   OWNER: ALL_PERMISSIONS,
 
-  // ADMIN: organization settings and members, but no billing, license or organization deletion
+  // ADMIN: organization settings and members, but no license or organization deletion
   ADMIN: ALL_PERMISSIONS.filter(
     (p) =>
       p !== 'org:delete' &&
-      !p.startsWith('billing:') &&
       !p.startsWith('license:'),
   ),
 

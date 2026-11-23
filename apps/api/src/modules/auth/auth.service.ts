@@ -1,5 +1,4 @@
 import * as argon2 from 'argon2';
-import { env } from '../../config/env';
 import { AppError } from '../../utils/app-error';
 import { mailer } from '../../utils/mailer';
 import type { RequestMeta } from '../../utils/request-meta';
@@ -23,10 +22,16 @@ const getDummyHash = () => (dummyHash ??= hashPassword('estateflow-timing-equali
 
 const RESET_TTL_MS = 60 * 60 * 1000;
 
+/** First-run setup only: once an administrator exists, new people join through invitations. */
 export async function register(input: RegisterInput, meta: RequestMeta) {
-  if (env.DEPLOYMENT_MODE === 'SELF_HOSTED' && (await User.exists({}))) {
+  if (await User.exists({})) {
     throw AppError.forbidden('Registration is closed. Ask an administrator for an invitation.', 'REGISTRATION_CLOSED');
   }
+  return createAccount(input, meta);
+}
+
+/** Creates a user, their organization and an OWNER membership. Applies no registration policy: callers do. */
+export async function createAccount(input: RegisterInput, meta: RequestMeta) {
   if (await User.exists({ email: input.email })) {
     throw AppError.conflict('An account with this email already exists.', 'EMAIL_IN_USE');
   }

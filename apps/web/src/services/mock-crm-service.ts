@@ -4,7 +4,6 @@ import { dashboardData } from '@/mocks/dashboard';
 import { leads } from '@/mocks/leads';
 import { notifications } from '@/mocks/notifications';
 import { organizations } from '@/mocks/organizations';
-import { plans, subscriptionOverview } from '@/mocks/plans';
 import { properties } from '@/mocks/properties';
 import { tasks } from '@/mocks/tasks';
 import { invitationPreview, invitations, members } from '@/mocks/team';
@@ -59,7 +58,5 @@ export const mockCrmService: CrmService = {
       members: members.map((m) => ({ ...m, user: userById.get(m.userId)! })),
       invitations,
     }),
-  getPlans: () => respond(plans, 200),
-  getSubscriptionOverview: () => respond(subscriptionOverview),
   getInvitationPreview: () => respond(invitationPreview, 300),
 };

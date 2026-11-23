@@ -3,7 +3,6 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Breadcrumbs } from './breadcrumbs';
 import { NotificationsMenu } from './notifications-menu';
-import { OrgSwitcher } from './org-switcher';
 import { ThemeToggle } from './theme-toggle';
 import { UserMenu } from './user-menu';
 
@@ -37,7 +36,6 @@ export function Topbar({ onToggleSidebar, onOpenSearch }: TopbarProps) {
       <Button variant="ghost" size="icon" className="md:hidden" onClick={onOpenSearch} aria-label="Open global search">
         <Search className="size-4" aria-hidden />
       </Button>
-      <OrgSwitcher />
       <NotificationsMenu />
       <ThemeToggle />
       <UserMenu />

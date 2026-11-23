@@ -1,13 +1,14 @@
 # Multi-Tenancy
 
 ## Strategy
-Shared database, shared collections, discriminated by `organizationId`. It's the cheapest to operate
-and works for both editions. Self-hosted mode simply has one organization.
+Shared database, shared collections, discriminated by `organizationId`. It's the cheapest to operate.
+The data model supports many organizations per install; a self-hosted customer usually
+just creates one.
 
 ## Tenant resolution
 1. `authenticate` verifies the JWT and loads `req.auth = { userId, tokenVersion }`.
-2. `resolveOrganization` reads the org selector from `X-Organization-Id`
-   (self-hosted: the single organization if the header is absent).
+2. `resolveOrganization` reads the org selector from `X-Organization-Id`. The header is required
+   on every organization-scoped route; if it is absent the request fails with `ORGANIZATION_REQUIRED`.
 3. `requireMembership` queries `OrganizationMembers {organizationId, userId, status:ACTIVE, invitationStatus:ACCEPTED}`.
    No membership returns **404** (do not disclose that the org exists).
 4. Result is attached as `req.tenant = { organizationId, role, permissions }`. This is the **only**
@@ -40,11 +41,6 @@ users learn nothing about schemas; entitlements after membership because they ar
 7. Background jobs receive `organizationId` explicitly and use the same scoped repositories.
 8. File storage keys are prefixed `org/<organizationId>/...`; downloads are authorized, not public listings.
 9. Cache keys include `organizationId`.
-
-## Platform vs organization privileges
-`Users.platformRole = PLATFORM_ADMIN` grants access only to `/admin/*`. It does **not** grant
-membership in any organization. Platform admin routes use a separate `requirePlatformAdmin`
-guard, and every use is audit-logged. OWNER/ADMIN roles never grant platform access.
 
 ## Testing requirements
 - For every org-scoped route: a test that user A (org 1) receives 404 for org 2's resource ID.

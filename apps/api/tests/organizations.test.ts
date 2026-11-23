@@ -1,18 +1,16 @@
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
-import { env } from '../src/config/env';
 import { AuditLog } from '../src/modules/audit/audit-log.model';
 import { Organization } from '../src/modules/organizations/organization.model';
 import { addMember, API, app, bearer, registerUser } from './helpers';
 
 describe('organizations', () => {
-  it('creates an additional organization with an OWNER membership (SAAS)', async () => {
+  it('does not offer organization creation (one organization per install)', async () => {
     const { accessToken } = await registerUser();
     const res = await request(app).post(`${API}/organizations`).set(bearer(accessToken)).send({ name: 'Second Agency' });
-    expect(res.status).toBe(201);
-    expect(res.body.data.role).toBe('OWNER');
+    expect(res.status).toBe(404);
     const list = await request(app).get(`${API}/organizations`).set(bearer(accessToken));
-    expect(list.body.data).toHaveLength(2);
+    expect(list.body.data).toHaveLength(1);
   });
 
   it('lists only organizations the user belongs to', async () => {
@@ -77,15 +75,10 @@ describe('organizations', () => {
     expect(asOwner.body.data.permissions).toContain('org:update');
   });
 
-  it('blocks a second organization in SELF_HOSTED mode', async () => {
-    const { accessToken } = await registerUser();
-    Object.assign(env, { DEPLOYMENT_MODE: 'SELF_HOSTED' });
-    try {
-      const res = await request(app).post(`${API}/organizations`).set(bearer(accessToken)).send({ name: 'Another' });
-      expect(res.status).toBe(403);
-      expect(res.body.code).toBe('SINGLE_ORGANIZATION_MODE');
-    } finally {
-      Object.assign(env, { DEPLOYMENT_MODE: 'SAAS' });
-    }
+  it('falls back to the single organization when X-Organization-Id is omitted', async () => {
+    const { accessToken, organization } = await registerUser();
+    const res = await request(app).get(`${API}/leads`).set(bearer(accessToken));
+    expect(res.status).toBe(200);
+    expect(organization._id).toEqual(expect.any(String));
   });
 });

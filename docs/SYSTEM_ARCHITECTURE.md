@@ -8,12 +8,10 @@ rules (see below), so extraction into services is possible later but not planned
 flowchart LR
   Browser[React SPA] -->|HTTPS /api/v1| API[Express API]
   API --> Core[CRM modules]
-  API --> Commercial[Commercial layer]
+  API --> Licensing[Licensing module]
   Core --> DB[(MongoDB)]
-  Commercial --> DB
-  Commercial -->|SAAS| Billing[BillingProvider adapter]
-  Commercial -->|SELF_HOSTED| Lic[LicenseProvider]
-  Billing -.webhooks.-> API
+  Licensing --> DB
+  Licensing --> Lic[License service]
 ```
 
 ## 2. Layers and dependency rules
@@ -25,13 +23,13 @@ routes -> controllers -> services -> models
 - Controllers handle HTTP only (parse, call service, shape response).
 - Services contain business logic and are framework-free (no `req`/`res`).
 - Models contain schema, indexes, validation.
-- **CRM modules may import `entitlements` and `audit`, never `billing` or `licensing`.**
+- **CRM modules may import `entitlements` and `audit`, never `licensing`.**
 - `packages/shared` is imported by both apps; it contains no Node- or browser-specific code.
 
 ## 3. Backend architecture
 ```
 apps/api/src/
-  config/          env validation (Zod), deployment mode, constants
+  config/          env validation (Zod), constants
   middleware/      authenticate, resolveOrganization, requireMembership,
                    authorize, entitlement guard, validate, rateLimit, errorHandler
   modules/
@@ -39,10 +37,7 @@ apps/api/src/
     tasks/ activities/ notifications/ analytics/ audit/
     commercial/
       entitlements/     EntitlementProvider interface + factory
-      subscriptions/    SaaS only
-      licensing/        Self-hosted only
-      billing/          BillingProvider interface + adapters
-    admin/              platform administration (SaaS)
+      licensing/        license activation, validation, limits
   utils/ types/ app.ts server.ts
 ```
 Each CRM module contains `*.routes.ts`, `*.controller.ts`, `*.service.ts`, `*.model.ts`,
@@ -63,18 +58,15 @@ apps/web/src/
 - The access token lives **in memory only**. The refresh token is an httpOnly cookie.
 - The UI may hide features based on entitlements, but the **server is the authority**.
 
-## 5. Deployment modes
-`DEPLOYMENT_MODE` is validated at boot with Zod. Invalid or missing values stop startup.
-The frontend learns about the mode from `GET /api/v1/system/config` for UI display only;
-it is never sent back or trusted.
+## 5. Edition
+EstateFlow ships as a single self-hosted edition, run by the customer with Docker Compose under a
+license. See `SELF_HOSTED.md`. CRM modules read entitlements through the `EntitlementProvider`
+interface, whose only implementation is `LicenseEntitlementProvider`.
 
 ```mermaid
 flowchart TD
-  Boot[API boot] --> Env[Validate env with Zod]
-  Env -->|SAAS| S[SubscriptionEntitlementProvider]
-  Env -->|SELF_HOSTED| L[LicenseEntitlementProvider]
-  S --> Core[CRM modules call EntitlementProvider]
-  L --> Core
+  Req[Request with verified membership] --> L[LicenseEntitlementProvider]
+  L --> Core[CRM modules call EntitlementProvider]
 ```
 
 ## 6. Entitlement abstraction
@@ -85,7 +77,7 @@ interface EntitlementProvider {
   assertWithinLimit(orgId: string, limit: 'users' | 'leads' | 'properties', delta?: number): Promise<void>;
 }
 ```
-CRM services call this interface and never know which edition is running.
+CRM services call this interface and never know how entitlements are provided.
 
 ## 7. Deployment topology
 ```mermaid
@@ -94,7 +86,6 @@ flowchart LR
   Proxy --> Api[api: Node]
   Api --> Mongo[(MongoDB)]
 ```
-- **SaaS:** managed host or container platform + managed MongoDB (e.g., Atlas), CI/CD from GitHub.
 - **Self-hosted:** `docker compose up` runs `web`, `api`, `mongo` with a `.env` file.
 
 ## 8. Key decisions
@@ -102,6 +93,6 @@ flowchart LR
 |---|---|
 | Modular monolith | Small team, simpler ops, enough scalability |
 | Shared Zod schemas | One validation source for client and server |
-| Entitlement interface | Keeps commercial logic out of CRM code |
-| Single-DB, `organizationId` multi-tenancy | Works for both editions; cheapest to operate |
+| Entitlement interface | Keeps licensing logic out of CRM code |
+| Single-DB, `organizationId` multi-tenancy | Isolation does not depend on how many organizations exist; cheapest to operate |
 | Access token in memory + httpOnly refresh cookie | Reduces XSS token theft |

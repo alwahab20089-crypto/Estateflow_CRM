@@ -11,7 +11,7 @@ async function main() {
   await Promise.all(Object.values(mongoose.models).map((model) => model.init())); // make sure indexes exist
 
   const server = createApp().listen(env.PORT, () => {
-    logger.info({ port: env.PORT, mode: env.DEPLOYMENT_MODE, env: env.NODE_ENV }, 'EstateFlow API listening');
+    logger.info({ port: env.PORT, env: env.NODE_ENV }, 'EstateFlow API listening');
   });
   const scheduler = env.REMINDER_SCHEDULER_ENABLED
     ? startReminderScheduler({ intervalMs: env.REMINDER_POLL_INTERVAL_MS, batchSize: env.REMINDER_BATCH_SIZE, leaseMs: env.REMINDER_LOCK_LEASE_MS })

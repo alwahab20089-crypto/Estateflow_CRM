@@ -6,7 +6,6 @@ export interface StoredFile {
   url: string;
 }
 
-/** Cloudinary (SaaS) and S3-compatible (self-hosted) providers will implement this same interface later. */
 export interface StorageProvider {
   put(key: string, data: Buffer, contentType: string): Promise<StoredFile>;
   delete(key: string): Promise<void>;
@@ -14,7 +13,6 @@ export interface StorageProvider {
 
 export const LOCAL_UPLOAD_ROOT = path.resolve(process.env.UPLOAD_DIR ?? 'uploads');
 
-/** Development/self-hosted-single-node only. Files are served publicly under /uploads by unguessable keys. */
 class LocalDiskStorage implements StorageProvider {
   private resolve(key: string) {
     const full = path.resolve(LOCAL_UPLOAD_ROOT, key);

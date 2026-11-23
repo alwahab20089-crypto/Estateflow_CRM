@@ -1,4 +1,3 @@
-export const DEPLOYMENT_MODES = ['SAAS', 'SELF_HOSTED'] as const;
 export const USER_STATUSES = ['ACTIVE', 'SUSPENDED', 'DELETED'] as const;
 export const PLATFORM_ROLES = ['NONE', 'PLATFORM_ADMIN'] as const;
 export const ORGANIZATION_STATUSES = ['ACTIVE', 'SUSPENDED', 'DELETED'] as const;
@@ -63,5 +62,9 @@ export const MANDATORY_NOTIFICATION_TYPES: readonly NotificationType[] = [
   'TASK_ASSIGNED', 'LEAD_ASSIGNED', 'DEAL_ASSIGNED', 'TASK_OVERDUE', 'AUTOMATION_FAILED',
 ];
 
-// add 'AUTOMATION' to the existing ACTIVITY_ENTITY_TYPES array:
-// export const ACTIVITY_ENTITY_TYPES = ['LEAD','CONTACT','PROPERTY','TASK','DEAL','AUTOMATION'] as const;
+export const SUBSCRIPTION_STATUSES = ['INCOMPLETE', 'TRIALING', 'ACTIVE', 'PAST_DUE', 'UNPAID', 'PAUSED', 'CANCELLED', 'EXPIRED'] as const;
+export type SubscriptionStatus = (typeof SUBSCRIPTION_STATUSES)[number];
+/** At most ONE subscription per organization may be in these states (partial unique index). */
+export const LIVE_SUBSCRIPTION_STATUSES = ['INCOMPLETE', 'TRIALING', 'ACTIVE', 'PAST_DUE', 'PAUSED'] as const;
+export const BILLING_INTERVALS = ['MONTH', 'YEAR'] as const;
+export type BillingInterval = (typeof BILLING_INTERVALS)[number];

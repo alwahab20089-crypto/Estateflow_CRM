@@ -26,7 +26,6 @@ notifications, sales analytics, team management.
 - Activities: timeline per lead/contact/property
 - In-app notifications (task due, assignment)
 - Basic analytics: pipeline funnel, leads by source, won/lost, agent performance
-- SaaS: trial, plans, entitlements, webhook-driven billing
 - Self-hosted: license activation/validation, Docker Compose install
 
 **Out of scope for v1.0**
@@ -40,17 +39,14 @@ document e-signing, accounting, calendar sync (listed as post-MVP candidates).
 | Performance | List endpoints paginated, p95 < 300 ms for indexed queries at 100k records/tenant |
 | Responsiveness | Fully usable on mobile browsers |
 | Maintainability | Modular monolith, typed end to end, shared validation schemas |
-| Portability | One codebase, two deployment modes |
+| Portability | One codebase and one build, run with Docker Compose |
 | Operability | Health endpoint, structured logs, env-based config |
 
-## Edition comparison
-| Concern | SaaS | Self-hosted |
-|---|---|---|
-| Tenancy | Many organizations | One organization (default) |
-| Billing | Subscription via provider webhooks | One-time purchase / license |
-| Limits | Plan limits | License `maxUsers` |
-| Admin | Platform admin console | Local admin only |
-| Updates | Continuous | Customer-applied releases |
+## Edition
+EstateFlow is distributed as a self-hosted product that the customer runs on their own
+infrastructure under a license. There is no hosted edition and no subscription billing. An install
+normally has one organization; limits come from the license `maxUsers`, and the organization
+owner administers the install. Updates are applied by the customer. See `SELF_HOSTED.md`.
 
 ## Success criteria
 A new agent can register, add a lead, schedule a follow-up, and see it on a dashboard in

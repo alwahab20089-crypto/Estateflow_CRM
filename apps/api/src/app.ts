@@ -1,10 +1,10 @@
-import dns from 'node:dns';
-
+import dns from "node:dns";
 dns.setServers(["8.8.8.8", "1.1.1.1"]);
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import express from 'express';
 import helmet from 'helmet';
+
 import { corsOptions } from './config/cors';
 import { env } from './config/env';
 import { errorHandler } from './middleware/error-handler';
@@ -18,14 +18,32 @@ export type AppOptions = RateLimitOptions;
 
 export function createApp(options: AppOptions = {}) {
   const app = express();
+
   app.disable('x-powered-by');
   app.set('trust proxy', env.TRUST_PROXY);
 
   app.use(requestContext);
   app.use(helmet());
   app.use(cors(corsOptions));
-  app.use(express.json({ limit: '100kb' }));
+
+  // Capture the exact raw request body for webhook signature verification.
+  app.use(
+    express.json({
+      limit: '100kb',
+      verify: (req, _res, buf) => {
+        if (
+          (req as { originalUrl?: string }).originalUrl?.startsWith(
+            '/api/v1/webhooks/',
+          )
+        ) {
+          (req as { rawBody?: Buffer }).rawBody = Buffer.from(buf);
+        }
+      },
+    }),
+  );
+
   app.use(cookieParser());
+
   app.use(
     '/uploads',
     express.static(LOCAL_UPLOAD_ROOT, {
@@ -42,5 +60,6 @@ export function createApp(options: AppOptions = {}) {
 
   app.use(notFound);
   app.use(errorHandler);
+
   return app;
 }

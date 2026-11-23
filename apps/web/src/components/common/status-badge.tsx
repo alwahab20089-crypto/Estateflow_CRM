@@ -52,8 +52,6 @@ const tones: Record<string, Tone> = {
   ACTIVE: 'success',
   SUSPENDED: 'danger',
   PENDING: 'warning',
-  TRIALING: 'info',
-  PAST_DUE: 'danger',
 
   // Property / deal
   UNDER_OFFER: 'warning',

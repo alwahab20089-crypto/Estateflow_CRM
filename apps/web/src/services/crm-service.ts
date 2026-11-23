@@ -8,9 +8,7 @@ import type {
   Lead,
   Notification,
   Organization,
-  Plan,
   Property,
-  SubscriptionOverview,
   Task,
   TeamMember,
   User,
@@ -33,7 +31,5 @@ export interface CrmService {
   getActivities(): Promise<ActivityListItem[]>;
   getNotifications(): Promise<Notification[]>;
   getTeam(): Promise<{ members: TeamMember[]; invitations: Invitation[] }>;
-  getPlans(): Promise<Plan[]>;
-  getSubscriptionOverview(): Promise<SubscriptionOverview>;
   getInvitationPreview(token: string): Promise<InvitationPreview>;
 }

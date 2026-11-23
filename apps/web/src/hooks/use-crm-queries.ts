@@ -11,9 +11,6 @@ export const useFollowUps = () => useQuery({ queryKey: ['followUps'], queryFn: (
 export const useActivities = () => useQuery({ queryKey: ['activities'], queryFn: () => crmService.getActivities() });
 export const useNotifications = () => useQuery({ queryKey: ['notifications'], queryFn: () => crmService.getNotifications() });
 export const useTeam = () => useQuery({ queryKey: ['team'], queryFn: () => crmService.getTeam() });
-export const usePlans = () => useQuery({ queryKey: ['plans'], queryFn: () => crmService.getPlans() });
-export const useSubscriptionOverview = () =>
-  useQuery({ queryKey: ['subscription'], queryFn: () => crmService.getSubscriptionOverview() });
 export const useInvitationPreview = (token: string) =>
   useQuery({ queryKey: ['invitation', token], queryFn: () => crmService.getInvitationPreview(token) });
 

@@ -1,6 +1,5 @@
 import request from 'supertest';
 import { describe, expect, it, vi } from 'vitest';
-import { env } from '../src/config/env';
 import { OrganizationMember } from '../src/modules/members/member.model';
 import { PasswordResetToken } from '../src/modules/auth/password-reset-token.model';
 import { RefreshToken } from '../src/modules/refresh-tokens/refresh-token.model';
@@ -30,12 +29,10 @@ describe('POST /auth/register', () => {
     expect(user?.passwordHash).toMatch(/^\$argon2id\$/);
   });
 
-  it('rejects a duplicate email (case-insensitive)', async () => {
-    const { body } = await registerUser({ email: 'dupe@example.com' });
-    const res = await request(app).post(`${API}/auth/register`).send({ ...body, email: 'DUPE@example.com' });
-    expect(res.status).toBe(409);
-    expect(res.body.code).toBe('EMAIL_IN_USE');
-    expect(await User.countDocuments()).toBe(1);
+  it('stores emails lowercased', async () => {
+    const { body } = await registerUser({ email: 'MixedCase@Example.com' });
+    expect(body.email).toBe('MixedCase@Example.com');
+    expect(await User.countDocuments({ email: 'mixedcase@example.com' })).toBe(1);
   });
 
   it('rejects missing fields and invalid email with 422', async () => {
@@ -49,19 +46,14 @@ describe('POST /auth/register', () => {
     expect(await User.countDocuments()).toBe(0);
   });
 
-  it('is closed after first-run in SELF_HOSTED mode', async () => {
+  it('is closed after first-run setup', async () => {
     await registerUser();
-    const original = env.DEPLOYMENT_MODE;
-    Object.assign(env, { DEPLOYMENT_MODE: 'SELF_HOSTED' });
-    try {
-      const res = await request(app)
-        .post(`${API}/auth/register`)
-        .send({ name: 'Second', email: 'second@example.com', password: 'long-enough-pw', organizationName: 'Org' });
-      expect(res.status).toBe(403);
-      expect(res.body.code).toBe('REGISTRATION_CLOSED');
-    } finally {
-      Object.assign(env, { DEPLOYMENT_MODE: original });
-    }
+    const res = await request(app)
+      .post(`${API}/auth/register`)
+      .send({ name: 'Second', email: 'second@example.com', password: 'long-enough-pw', organizationName: 'Org' });
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe('REGISTRATION_CLOSED');
+    expect(await User.countDocuments()).toBe(1);
   });
 });
 

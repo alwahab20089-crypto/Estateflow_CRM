@@ -1,14 +1,11 @@
 import { randomBytes } from 'node:crypto';
 import type { Types } from 'mongoose';
-import { env } from '../../config/env';
 import { AppError } from '../../utils/app-error';
 import type { RequestMeta } from '../../utils/request-meta';
-import { runUnitOfWork, type UnitOfWork } from '../../utils/transaction';
+import type { UnitOfWork } from '../../utils/transaction';
 import { recordAudit } from '../audit/audit.service';
 import { toTenantContext, type TenantContext } from '../members/member.service';
 import { OrganizationMember } from '../members/member.model';
-import { resolvePermissions } from '../members/permissions';
-import { User } from '../users/user.model';
 import { Organization } from './organization.model';
 import type { CreateOrganizationInput, UpdateOrganizationInput } from './organization.validation';
 
@@ -63,19 +60,6 @@ export async function createOrganizationWithOwner(
   );
 
   return { organization: organization!, membership: membership! };
-}
-
-export async function createOrganization(userId: string, input: CreateOrganizationInput, meta: RequestMeta) {
-  if (env.DEPLOYMENT_MODE === 'SELF_HOSTED') {
-    throw AppError.forbidden('This installation supports a single organization.', 'SINGLE_ORGANIZATION_MODE');
-  }
-  const user = await User.findById(userId).select('email');
-  if (!user) throw AppError.unauthorized();
-
-  const { organization } = await runUnitOfWork((uow) =>
-    createOrganizationWithOwner(uow, user._id, { ...input, email: input.email ?? user.email }, meta),
-  );
-  return { organization, role: 'OWNER' as const, permissions: resolvePermissions('OWNER') };
 }
 
 /** Context for an already-verified tenant (membership was checked by middleware). */

@@ -26,12 +26,12 @@ Stack traces and internal messages are never returned in production.
 ### Status codes
 | Code | Use |
 |---|---|
-| 200 | OK | 
+| 200 | OK |
 | 201 | Created |
 | 204 | No content (delete, logout) |
 | 400 | Malformed request |
 | 401 | Not authenticated / token expired |
-| 402 | Plan/license limit or feature not entitled (`code: ENTITLEMENT_REQUIRED`) |
+| 402 | License limit or feature not entitled (`code: ENTITLEMENT_REQUIRED`) |
 | 403 | Authenticated but not permitted |
 | 404 | Not found **or** belongs to another tenant (never reveal existence) |
 | 409 | Conflict (duplicate, version) |
@@ -42,7 +42,7 @@ Stack traces and internal messages are never returned in production.
 ### Auth and tenancy
 - `Authorization: Bearer <accessToken>` on protected routes.
 - `X-Organization-Id: <id>` selects the active organization. It is a **selector only**; the
-  server verifies active membership. Self-hosted mode may omit it (single org).
+  server verifies active membership. It is required on organization-scoped routes.
 - Request bodies never carry `organizationId` for authorization; unknown fields are stripped.
 
 ### Pagination
@@ -61,7 +61,7 @@ Legend: **A** = auth required, **O** = org context required, permission shown in
 ### /auth
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| POST | /auth/register | public | Create user (+ organization in SaaS; first-run setup in self-hosted) |
+| POST | /auth/register | public | First-run setup only: creates the first user and the organization. Returns 403 `REGISTRATION_CLOSED` once any user exists |
 | POST | /auth/login | public | Returns access token, sets refresh cookie |
 | POST | /auth/refresh | cookie | Rotates refresh token |
 | POST | /auth/logout | A | Revokes current token family |
@@ -73,7 +73,7 @@ Legend: **A** = auth required, **O** = org context required, permission shown in
 GET `/users/me` (A) · PATCH `/users/me` (A) · POST `/users/me/change-password` (A) · DELETE `/users/me` (A, anonymizes account; blocked if sole OWNER)
 
 ### /organizations
-POST `/organizations` (A; SaaS) · GET `/organizations` (A, mine) · GET `/organizations/current` (A,O) ·
+GET `/organizations` (A, mine) · GET `/organizations/current` (A,O) ·
 PATCH `/organizations/current` (A,O `org:update`) · DELETE `/organizations/current` (A,O OWNER only)
 
 ### /members
@@ -104,20 +104,12 @@ GET `/notifications` · PATCH `/notifications/:id/read` · POST `/notifications/
 GET `/analytics/overview` · `/analytics/pipeline` · `/analytics/lead-sources` · `/analytics/agent-performance`
 (permission `analytics:read`; MANAGER and above by default)
 
-### /subscriptions (SaaS only; 404 in self-hosted)
-GET `/subscriptions/current` (`billing:read`) · POST `/subscriptions/checkout-session` (`billing:manage`) ·
-POST `/subscriptions/webhooks/:provider` (public; **signature-verified**, raw body, idempotent)
-
-### /licenses (self-hosted only; 404 in SaaS)
+### /licenses
 GET `/licenses/current` (`license:read`) · POST `/licenses/activate` (OWNER) · POST `/licenses/validate` (OWNER) ·
 DELETE `/licenses/current` (OWNER, deactivate)
 
-### /admin (SaaS platform admin; `platformRole = PLATFORM_ADMIN`)
-GET `/admin/organizations` · PATCH `/admin/organizations/:id/status` · GET `/admin/subscriptions` ·
-GET `/admin/audit-logs` · GET `/admin/plans`, POST/PATCH `/admin/plans`. Not available to org roles.
-
 ### System
-GET `/health` (public, no sensitive data) · GET `/system/config` (public, UI-only deployment info)
+GET `/health` (public, no sensitive data) · GET `/system/config` (public, UI-only info)
 
 ## Validation
 Each route declares Zod schemas for `params`, `query`, and `body` in `*.validators.ts`; schemas

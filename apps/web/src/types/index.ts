@@ -190,35 +190,9 @@ export interface Notification {
   userId: ID;
   title: string;
   message: string;
-  type: 'TASK_DUE' | 'LEAD_ASSIGNED' | 'FOLLOW_UP' | 'SYSTEM' | 'BILLING';
+  type: 'TASK_DUE' | 'LEAD_ASSIGNED' | 'FOLLOW_UP' | 'SYSTEM';
   readAt: ISODate | null;
   createdAt: ISODate;
-}
-
-export interface Plan {
-  _id: ID;
-  name: string;
-  slug: string;
-  /** minor units (cents) */
-  price: number;
-  currency: string;
-  billingInterval: 'MONTH' | 'YEAR';
-  trialDays: number;
-  limits: { users: number | null; leads: number | null; properties: number | null; storageMb: number | null };
-}
-export interface Subscription {
-  _id: ID;
-  organizationId: ID;
-  planId: ID;
-  status: 'TRIALING' | 'ACTIVE' | 'PAST_DUE' | 'CANCELED' | 'EXPIRED';
-  currentPeriodStart: ISODate;
-  currentPeriodEnd: ISODate;
-  cancelAtPeriodEnd: boolean;
-}
-export interface SubscriptionOverview {
-  plan: Plan;
-  subscription: Subscription;
-  usage: { users: number; leads: number; properties: number; storageMb: number };
 }
 
 export type WithAssignee<T> = T & { assignee: User | null };

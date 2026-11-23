@@ -12,10 +12,6 @@ export const list = asyncHandler(async (req, res) => {
   sendSuccess(res, { data: memberships.map(toMembershipDto), meta: { total: memberships.length } });
 });
 
-export const create = asyncHandler(async (req, res) => {
-  const result = await organizationService.createOrganization(getAuth(req).userId, req.body, getRequestMeta(req));
-  sendSuccess(res, { status: 201, message: 'Organization created', data: toMembershipDto(result) });
-});
 
 export const get = asyncHandler(async (req, res) => {
   sendSuccess(res, { data: toMembershipDto(await organizationService.getOrganizationContext(getTenant(req))) });

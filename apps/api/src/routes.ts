@@ -13,14 +13,20 @@ import { createNotificationRouter } from './modules/notifications/notification.r
 import { createAnalyticsRouter } from './modules/analytics/analytics.routes';
 import { createReportRouter } from './modules/reports/report.routes';
 import { createAutomationRouter } from './modules/automations/automation.routes';
-
+import { createBillingRouter, createBillingWebhookRouter } from './modules/commercial/billing.routes';
 
 export function createApiRouter(options: RateLimitOptions = {}) {
   const router = Router();
   const limiters = createRateLimiters(options);
 
   router.use('/health', healthRouter); // before rate limiting so monitors are never throttled
+
+  // Provider webhooks: authenticity is the signature over the raw body. They must not be throttled by the per-IP
+  // limiter, because a dropped webhook means a missed payment or cancellation.
+  router.use('/webhooks', createBillingWebhookRouter());
+
   router.use(limiters.global);
+
   router.use('/auth', createAuthRouter(limiters));
   router.use('/organizations', organizationRouter);
   router.use('/leads', createLeadRouter(limiters));
@@ -33,5 +39,7 @@ export function createApiRouter(options: RateLimitOptions = {}) {
   router.use('/tasks', createTaskRouter(limiters));
   router.use('/notifications', createNotificationRouter(limiters));
   router.use('/automations', createAutomationRouter(limiters));
+  router.use('/billing', createBillingRouter(limiters));
+
   return router;
 }

@@ -3,6 +3,8 @@ import { expect } from 'vitest';
 import { createApp } from '../src/app';
 import { OrganizationMember } from '../src/modules/members/member.model';
 import type { MemberRole } from '../src/constants';
+import { createAccount } from '../src/modules/auth/auth.service';
+import { User } from '../src/modules/users/user.model';
 
 export const app = createApp();
 export const API = '/api/v1';
@@ -18,7 +20,9 @@ export function extractRefreshCookie(res: Response): string {
 
 let counter = 0;
 
-export async function registerUser(overrides: Partial<{ name: string; email: string; password: string; organizationName: string }> = {}) {
+export async function registerUser(
+  overrides: Partial<{ name: string; email: string; password: string; organizationName: string }> = {},
+) {
   counter += 1;
   const body = {
     name: 'Test User',
@@ -27,11 +31,22 @@ export async function registerUser(overrides: Partial<{ name: string; email: str
     organizationName: `Org ${counter}`,
     ...overrides,
   };
-console.time('TEST registerUser');
 
-const res = await request(app).post(`${API}/auth/register`).send(body);
+  // Public registration is first-run only. The first user goes through the real endpoint; any further
+  // users (needed for tenancy and permission tests) are created through the service layer instead.
+  if (await User.exists({})) {
+    const { user, organization, tokens } = await createAccount(body, {});
+    return {
+      body,
+      res: undefined as never, // no HTTP response exists for a seeded user
+      accessToken: tokens.accessToken,
+      cookie: `ef_rt=${tokens.refreshToken}`,
+      user: { _id: String(user._id), email: user.email },
+      organization: { _id: String(organization._id) },
+    };
+  }
 
-console.timeEnd('TEST registerUser');
+  const res = await request(app).post(`${API}/auth/register`).send(body);
   expect(res.status).toBe(201);
   return {
     body,
@@ -52,27 +67,12 @@ export const addMember = (userId: string, organizationId: string, role: MemberRo
     status: 'ACTIVE',
     joinedAt: new Date(),
   });
-  export const asUser = (token: string, org: string) => {
-  
-const call = async (
-  method: 'get' | 'post' | 'patch' | 'delete',
-  url: string,
-  body?: object
-) => {
-  const started = performance.now();
 
-  const req = request(app)[method](`${API}${url}`)
-    .set(bearer(token))
-    .set('X-Organization-Id', org);
-
-  const res = await (body ? req.send(body) : req);
-
-  console.log(
-    `[TEST API] ${method.toUpperCase()} ${url}: ${(performance.now() - started).toFixed(0)}ms`
-  );
-
-  return res;
-};
+export const asUser = (token: string, org: string) => {
+  const call = async (method: 'get' | 'post' | 'patch' | 'delete', url: string, body?: object) => {
+    const req = request(app)[method](`${API}${url}`).set(bearer(token)).set('X-Organization-Id', org);
+    return body ? req.send(body) : req;
+  };
 
   return {
     get: (u: string) => call('get', u),
@@ -92,6 +92,7 @@ export async function memberOf(org: string, role: 'ADMIN' | 'MANAGER' | 'AGENT')
   await addMember(u.user._id, org, role);
   return { ...u, api: asUser(u.accessToken, org) };
 }
+
 export const propertyBody = (o: Record<string, unknown> = {}) => ({
   title: '3 Bed House',
   propertyType: 'HOUSE',

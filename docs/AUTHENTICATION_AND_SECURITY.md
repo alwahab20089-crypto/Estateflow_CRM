@@ -44,13 +44,13 @@ Two layers:
 2. **Per-member overrides**: `permissions` (grants) and `deniedPermissions` (revokes).
 
 Effective permissions = (role defaults ∪ grants) − denied. Permissions are strings like
-`leads:read`, `leads:read_all`, `members:invite`, `analytics:read`, `billing:manage`.
+`leads:read`, `leads:read_all`, `members:invite`, `analytics:read`, `license:read`.
 Middleware: `authorize('leads:update')`. Ownership-style rules (e.g., agents only see assigned
 leads) are enforced in services using the same tenant context.
 
 | Permission area | OWNER | ADMIN | MANAGER | AGENT |
 |---|---|---|---|---|
-| Org settings, billing, license | Yes | Settings only | No | No |
+| Org settings, license | Yes | Settings only | No | No |
 | Members manage | Yes | Yes (not OWNER) | Read | No |
 | Leads/Contacts/Properties all | Yes | Yes | Yes | Assigned/own |
 | Analytics | Yes | Yes | Yes | Own stats only |
@@ -59,14 +59,14 @@ leads) are enforced in services using the same tenant context.
 ## Audit logging
 Audit (written by the `audit` service, not controllers):
 login failures threshold, role/permission changes, member add/remove, ownership transfer, org
-settings, license activation, billing state changes, data exports, bulk deletes, platform admin actions.
+settings, license activation, data exports, bulk deletes.
 Entries include actor, org, action, resource, before/after (sanitized), IP, user agent, requestId.
 Append-only, with no update/delete code paths.
 
 ## Platform hardening
 - `helmet`, strict CORS allowlist from env, HTTPS only in production, `trust proxy` configured explicitly.
-- Rate limiting (global + stricter on `/auth/*` and webhooks).
-- Body size limits; `express.raw` only on webhook routes for signature verification.
+- Rate limiting (global + stricter on `/auth/*`).
+- Body size limits.
 - NoSQL injection: Zod-typed inputs, reject objects with `$` keys, `mongoSanitize`-style filtering.
 - Uploads: type and size allowlist, random storage keys, no executable content served.
 - Secrets only via env; startup fails if required secrets are missing or weak.
@@ -74,6 +74,6 @@ Append-only, with no update/delete code paths.
 - Structured logs with request IDs; PII and secrets redacted.
 
 ## Required environment variables (documented now, implemented in Phase 2)
-`NODE_ENV`, `DEPLOYMENT_MODE`, `PORT`, `MONGODB_URI`, `JWT_ACCESS_SECRET`, `JWT_ACCESS_TTL`,
-`REFRESH_TTL_DAYS`, `COOKIE_SECRET`, `CORS_ORIGINS`, `APP_URL`, `LOG_LEVEL`; SaaS: `BILLING_PROVIDER`,
-`<PROVIDER>_WEBHOOK_SECRET`; self-hosted: `LICENSE_SERVER_URL`, `LICENSE_PUBLIC_KEY`.
+`NODE_ENV`, `PORT`, `MONGODB_URI`, `JWT_ACCESS_SECRET`, `JWT_ACCESS_TTL`,
+`REFRESH_TTL_DAYS`, `COOKIE_SECRET`, `CORS_ORIGINS`, `APP_URL`, `LOG_LEVEL`; licensing:
+`LICENSE_SERVER_URL`, `LICENSE_PUBLIC_KEY` (used for license activation and validation).

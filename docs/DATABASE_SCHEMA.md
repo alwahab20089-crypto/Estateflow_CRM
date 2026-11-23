@@ -13,20 +13,16 @@
 |---|---|
 | `RefreshTokens` collection | Needed for rotation, reuse detection, and revocation |
 | `Invitations` collection | Invites for users who may not exist yet (token hash, expiry) |
-| `WebhookEvents` collection | Idempotent billing event processing |
-| `Users.platformRole` | Separates platform admin from org roles |
 | `deletedAt` on Leads/Contacts/Properties/Tasks | Preserves history, prevents accidental loss |
 | `OrganizationMembers.status` + permission overrides | Supports suspension and custom permissions |
 | `Leads.convertedContactId`, `wonAt`, `lostAt`, `lostReason` | Lifecycle history |
-| `Plans.trialDays`, `Subscriptions.trialEndsAt`, `graceEndsAt` | Trial and grace periods |
 
 ## Collection scope
-| Collection | SaaS | Self-hosted | Notes |
-|---|---|---|---|
-| Users, Organizations, OrganizationMembers, Invitations, RefreshTokens | Yes | Yes | Shared |
-| Leads, Contacts, Properties, Tasks, Activities, Notifications, AuditLogs | Yes | Yes | Shared |
-| Plans, Subscriptions, WebhookEvents | Yes | No | SaaS only |
-| Licenses | No | Yes | Self-hosted only |
+| Collection | Notes |
+|---|---|
+| Users, Organizations, OrganizationMembers, Invitations, RefreshTokens | Identity and tenancy |
+| Leads, Contacts, Properties, Tasks, Activities, Notifications, AuditLogs | CRM data |
+| Licenses | Signed licenses, key stored as hash |
 
 ## Core collections
 
@@ -39,7 +35,6 @@
 | avatar, phone | String | optional |
 | status | Enum | ACTIVE, SUSPENDED, DELETED |
 | emailVerified | Boolean | default false |
-| platformRole | Enum | NONE (default), PLATFORM_ADMIN |
 | tokenVersion | Number | bump to invalidate all sessions |
 | lastLoginAt | Date | |
 
@@ -111,7 +106,7 @@ metadata (Mixed, size-limited), createdAt.
 Indexes: `{organizationId:1, entityType:1, entityId:1, createdAt:-1}`, `{organizationId:1, userId:1, createdAt:-1}`.
 
 ### Notifications
-organizationId, userId, title, message, type (TASK_DUE, LEAD_ASSIGNED, FOLLOW_UP, SYSTEM, BILLING),
+organizationId, userId, title, message, type (TASK_DUE, LEAD_ASSIGNED, FOLLOW_UP, SYSTEM),
 relatedEntityType, relatedEntityId, readAt, createdAt.
 Indexes: `{organizationId:1, userId:1, readAt:1, createdAt:-1}`; TTL on `createdAt` (e.g., 180 days).
 
@@ -127,29 +122,14 @@ organizationId, email, role, tokenHash (unique), invitedBy, expiresAt, acceptedA
 Indexes: `{tokenHash:1}` unique, `{organizationId:1, email:1}`, TTL on `expiresAt` (after retention).
 
 ### AuditLogs (append-only)
-organizationId (nullable for platform actions), actorId, action (e.g., `member.role_changed`),
+organizationId, actorId, action (e.g., `member.role_changed`),
 resource, resourceId, metadata `{before, after, ip, userAgent, requestId}`, createdAt.
 Indexes: `{organizationId:1, createdAt:-1}`, `{organizationId:1, resource:1, resourceId:1}`, `{actorId:1, createdAt:-1}`.
 Never contains secrets or full PII beyond identifiers. Application code exposes no update/delete.
 
-## Commercial collections
+## Licensing collection
 
-### Plans (SaaS)
-name, slug (unique), description, price (minor units), currency, billingInterval (MONTH, YEAR),
-trialDays, features (`{key: boolean}`), limits (`{users, leads, properties, storageMb}`; `null` = unlimited),
-providerPlanRefs (`{gumroad?, lemonsqueezy?}`), isActive.
-
-### Subscriptions (SaaS)
-organizationId (unique), planId, status (TRIALING, ACTIVE, PAST_DUE, CANCELED, EXPIRED),
-billingProvider (GUMROAD, LEMONSQUEEZY, NONE), providerCustomerId, providerSubscriptionId,
-trialEndsAt, currentPeriodStart, currentPeriodEnd, graceEndsAt, cancelAtPeriodEnd.
-Indexes: `{organizationId:1}` unique, `{providerSubscriptionId:1}` sparse unique, `{status:1, currentPeriodEnd:1}`.
-
-### WebhookEvents (SaaS)
-provider, providerEventId, type, payloadHash, receivedAt, processedAt, status (RECEIVED, PROCESSED, FAILED).
-Indexes: `{provider:1, providerEventId:1}` unique (idempotency).
-
-### Licenses (self-hosted)
+### Licenses
 organizationId, licenseKeyHash (SHA-256 of key; unique), keyLast4, edition (STANDARD, PROFESSIONAL, AGENCY),
 status (INACTIVE, ACTIVE, EXPIRED, REVOKED), activatedAt, expiresAt, lastValidatedAt, offlineGraceUntil,
 maxUsers, instanceFingerprint, metadata.
@@ -165,9 +145,7 @@ erDiagram
   ORGANIZATIONS ||--o{ PROPERTIES : owns
   ORGANIZATIONS ||--o{ TASKS : owns
   ORGANIZATIONS ||--o{ ACTIVITIES : owns
-  ORGANIZATIONS ||--o| SUBSCRIPTIONS : "SaaS"
-  ORGANIZATIONS ||--o| LICENSES : "Self-hosted"
-  PLANS ||--o{ SUBSCRIPTIONS : defines
+  ORGANIZATIONS ||--o| LICENSES : "licensed by"
   LEADS ||--o| CONTACTS : "converts to"
   CONTACTS ||--o{ PROPERTIES : "owns listing"
   USERS ||--o{ REFRESH_TOKENS : has

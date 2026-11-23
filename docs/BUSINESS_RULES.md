@@ -3,7 +3,7 @@
 ## Ownership and tenancy
 - BR-1 Every lead, contact, property, task, activity, and notification belongs to exactly one organization.
 - BR-2 Cross-references (assignee, owner contact, related entities) must be in the same organization.
-- BR-3 A user may belong to many organizations (SaaS); self-hosted has one organization.
+- BR-3 The data model lets a user belong to many organizations; a self-hosted install normally has one.
 - BR-4 An organization has exactly one OWNER. Ownership changes only via explicit transfer.
 - BR-5 The OWNER cannot be removed, demoted, or delete their account until ownership is transferred.
 
@@ -14,7 +14,7 @@
 - BR-8 Invitation tokens are single-use, hashed, and expire (e.g., 7 days).
 - BR-9 Deleting or removing a user **never** deletes organization data. Their records remain and are
   reassigned or left unassigned. Authorship (`createdBy`) is preserved.
-- BR-10 Member count must respect plan limit (SaaS) or `maxUsers` (self-hosted).
+- BR-10 Member count must respect the license `maxUsers`.
 
 ## Leads
 - BR-11 A lead has at most one assignee, who must be an active member.
@@ -40,15 +40,15 @@
 
 ## Activities and audit
 - BR-26 Activities are append-only for users (no edit/delete); corrections are new entries.
-- BR-27 Every important mutation (member/role/org/billing/license/bulk/delete) creates an audit log.
+- BR-27 Every important mutation (member/role/org/license/bulk/delete) creates an audit log.
 - BR-28 Audit logs cannot be modified through the application.
 
 ## Analytics and permissions
 - BR-29 Analytics are computed only over the active organization's data; access requires `analytics:read`.
 - BR-30 Agents may see only their own performance numbers.
 
-## Commercial
-- BR-31 Limits and features are checked server-side on every relevant write.
-- BR-32 When a subscription or license lapses, the system degrades to read-only. Data is never auto-deleted.
-- BR-33 Billing state changes only from verified provider events (SaaS) or validated licenses (self-hosted).
+## Licensing
+- BR-31 License limits and features are checked server-side on every relevant write.
+- BR-32 When a license lapses, the system degrades to read-only. Data is never auto-deleted.
+- BR-33 License state changes only from validated licenses.
 - BR-34 Deletion of an organization is a soft delete with a retention window before permanent purge.

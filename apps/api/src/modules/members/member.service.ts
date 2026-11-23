@@ -20,12 +20,6 @@ export type TenantContext = {
 export const findActiveMembership = (userId: string, organizationId: string) =>
   OrganizationMember.findOne({ userId, organizationId, status: 'ACTIVE', invitationStatus: 'ACCEPTED' });
 
-export async function findFirstOrganizationId(userId: string): Promise<string | null> {
-  const member = await OrganizationMember.findOne({ userId, status: 'ACTIVE', invitationStatus: 'ACCEPTED' })
-    .sort({ joinedAt: 1 })
-    .select('organizationId');
-  return member ? String(member.organizationId) : null;
-}
 
 export function toTenantContext(member: MemberDoc): TenantContext {
   const role = member.role as MemberRole;
