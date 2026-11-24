@@ -1,4 +1,3 @@
-
 import { Router, type RequestHandler } from 'express';
 import { authenticate } from '../../middleware/authenticate';
 import { authorize } from '../../middleware/authorize';
@@ -7,7 +6,6 @@ import { requireMembership } from '../../middleware/require-membership';
 import { resolveOrganization } from '../../middleware/resolve-organization';
 import { validate } from '../../middleware/validate';
 import { requireObjectIdParam } from '../../utils/require-object-id';
-import { enforceLimit } from '../commercial/entitlements.middleware';
 import { assignSchema } from '../leads/lead.validation';
 import * as controller from './deal.controller';
 import {
@@ -34,7 +32,6 @@ export function createDealRouter(limiters: RateLimiters) {
   router.post(
     '/',
     authorize('deals:create'),
-    enforceLimit('deals'),
     validate({ body: createDealSchema }),
     controller.create,
   );
@@ -69,7 +66,6 @@ export function createDealRouter(limiters: RateLimiters) {
     '/:id/reopen',
     id,
     authorize('deals:reopen'),
-    enforceLimit('deals'),
     validate({ body: reopenSchema }),
     controller.reopen,
   );

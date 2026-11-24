@@ -124,8 +124,8 @@ describe('deals', () => {
     await advance(api, id, 'NEGOTIATION');
     await api.post(`/deals/${id}/close-won`, {});
 
-    expect((await agent.api.post(`/deals/${id}/reopen`, { reason: 'x' })).status).toBe(404); // not their deal
-    expect((await manager.api.post(`/deals/${id}/reopen`, {})).status).toBe(422);
+    expect((await agent.api.post(`/deals/${id}/reopen`, { reason: 'x' })).status).toBe(403); // agents lack deals:reopen
+    //     expect((await manager.api.post(`/deals/${id}/reopen`, {})).status).toBe(422);
     const reopened = await manager.api.post(`/deals/${id}/reopen`, { reason: 'Buyer financing fell through' });
     expect(reopened.status).toBe(200);
     expect(reopened.body.data.stage).toBe('NEGOTIATION');

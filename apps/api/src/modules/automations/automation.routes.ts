@@ -1,4 +1,3 @@
-
 import { Router, type RequestHandler } from 'express';
 import { authenticate } from '../../middleware/authenticate';
 import { authorize } from '../../middleware/authorize';
@@ -7,7 +6,6 @@ import { requireMembership } from '../../middleware/require-membership';
 import { resolveOrganization } from '../../middleware/resolve-organization';
 import { validate } from '../../middleware/validate';
 import { requireObjectIdParam } from '../../utils/require-object-id';
-import { requireFeature } from '../commercial/entitlements.middleware';
 import * as c from './automation.controller';
 import {
   createWorkflowSchema,
@@ -25,8 +23,6 @@ export function createAutomationRouter(limiters: RateLimiters) {
   const ex = requireObjectIdParam('executionId', 'Execution');
 
   router.use(authenticate, resolveOrganization('header'), requireMembership);
-
-  router.use(requireFeature('automations'));
 
   router.use(writesOnly);
 

@@ -6,10 +6,6 @@ import { env } from '../../config/env';
 import { logger } from '../../config/logger';
 import { recordActivity } from '../activities/activity.service';
 import { recordAudit } from '../audit/audit.service';
-import {
-    releaseAutomationExecution,
-    reserveAutomationExecution,
-} from '../commercial/entitlements.service';
 import { createNotification } from '../notifications/notification.service';
 import { withSettingsDefaults } from './automation.constants';
 import { runAction } from './automation.actions';
@@ -200,14 +196,7 @@ async function handleEvent(ev: any): Promise<number> {
             continue;
         }
 
-        // Reserve a monthly execution before attempting to create it.
-        if (!(await reserveAutomationExecution(String(ev.organizationId)))) {
-            logger.warn(
-                { workflowId: String(wf._id) },
-                'monthly automation execution limit reached; execution skipped',
-            );
-            continue;
-        }
+
 
         // Unique (workflow, event): re-handling an event after a crash cannot create a second execution.
         const res = await AutomationExecution.updateOne(
@@ -242,9 +231,6 @@ async function handleEvent(ev: any): Promise<number> {
 
         if (res.upsertedCount) {
             created += 1;
-        } else {
-            // Existing execution: release reservation to avoid double-counting.
-            await releaseAutomationExecution(String(ev.organizationId));
         }
     }
 

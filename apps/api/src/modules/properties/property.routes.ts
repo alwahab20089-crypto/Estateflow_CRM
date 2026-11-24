@@ -1,4 +1,3 @@
-
 import { Router, type RequestHandler } from 'express';
 import { authenticate } from '../../middleware/authenticate';
 import { authorize } from '../../middleware/authorize';
@@ -7,7 +6,6 @@ import { requireMembership } from '../../middleware/require-membership';
 import { resolveOrganization } from '../../middleware/resolve-organization';
 import { validate } from '../../middleware/validate';
 import { requireObjectIdParam } from '../../utils/require-object-id';
-import { enforceLimit } from '../commercial/entitlements.middleware';
 import { assignSchema } from '../leads/lead.validation';
 import * as controller from './property.controller';
 import { parseImageUpload } from './property.images';
@@ -33,7 +31,6 @@ export function createPropertyRouter(limiters: RateLimiters) {
   router.post(
     '/',
     authorize('properties:create'),
-    enforceLimit('properties'),
     validate({ body: createPropertySchema }),
     controller.create,
   );
@@ -68,7 +65,6 @@ export function createPropertyRouter(limiters: RateLimiters) {
     '/:id/restore',
     id,
     authorize('properties:delete'),
-    enforceLimit('properties'),
     controller.restore,
   );
 

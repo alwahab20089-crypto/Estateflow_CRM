@@ -1,4 +1,3 @@
-
 import { Router } from 'express';
 import { ipKeyGenerator, rateLimit } from 'express-rate-limit';
 import { authenticate } from '../../middleware/authenticate';
@@ -6,7 +5,6 @@ import { authorize } from '../../middleware/authorize';
 import { requireMembership } from '../../middleware/require-membership';
 import { resolveOrganization } from '../../middleware/resolve-organization';
 import { AppError } from '../../utils/app-error';
-import { requireFeature } from '../commercial/entitlements.middleware';
 import * as controller from './analytics.controller';
 
 export function createAnalyticsRouter() {
@@ -23,8 +21,6 @@ export function createAnalyticsRouter() {
   });
 
   router.use(authenticate, resolveOrganization('header'), requireMembership);
-
-  router.use(requireFeature('analytics'));
 
   router.use(limiter);
 

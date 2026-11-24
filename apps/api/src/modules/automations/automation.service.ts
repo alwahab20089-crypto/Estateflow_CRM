@@ -7,7 +7,6 @@ import type { RequestMeta } from '../../utils/request-meta';
 import { runUnitOfWork } from '../../utils/transaction';
 import { recordActivity } from '../activities/activity.service';
 import { recordAudit } from '../audit/audit.service';
-import { assertFeature } from '../commercial/entitlements.service';
 import { assertActiveMember, type TenantContext } from '../members/member.service';
 import { MAX_WORKFLOWS_PER_ORG, TRIGGER_ENTITY, withSettingsDefaults } from './automation.constants';
 import { snapshotEntity } from './automation.events';
@@ -83,25 +82,20 @@ async function assertReferencedMembers(t: TenantContext, actions: Action[]) {
  * Email actions require both a configured email provider and
  * the advancedNotifications subscription entitlement.
  */
-async function assertActivatable(
-  organizationId: string,
-  actions: Action[],
-) {
+/**
+ * Validate that a workflow can be activated.
+ * Email actions require a configured email provider.
+ */
+function assertActivatable(actions: Action[]) {
   const hasEmailAction = actions.some(
     (action) => action.type === 'SEND_EMAIL_NOTIFICATION',
   );
 
-  // First check whether the application has an email provider configured.
   if (hasEmailAction && !emailEnabled()) {
     throw AppError.conflict(
       'This automation sends email, but no email provider is configured.',
       'EMAIL_PROVIDER_DISABLED',
     );
-  }
-
-  // Then check whether the organization's subscription allows email automation.
-  if (hasEmailAction) {
-    await assertFeature(organizationId, 'advancedNotifications');
   }
 }
 
@@ -284,9 +278,9 @@ export async function updateWorkflow(
 
   await assertReferencedMembers(t, merged.actions);
 
-  // An active workflow must continue to satisfy its subscription entitlements.
+  // An active workflow must keep satisfying the activation requirements.
   if (w.status === 'ACTIVE') {
-    await assertActivatable(t.organizationId, merged.actions);
+    assertActivatable(merged.actions);
   }
 
   const definitionChanged = [
@@ -422,9 +416,8 @@ export async function activateWorkflow(
 
   await assertReferencedMembers(t, w.actions);
 
-  // Check provider configuration and subscription entitlement before activation.
-  await assertActivatable(t.organizationId, w.actions);
-
+  // Check the email provider configuration before activation.
+  assertActivatable(w.actions);
   const u: any = await AutomationWorkflow.findOneAndUpdate(
     {
       _id: w._id,

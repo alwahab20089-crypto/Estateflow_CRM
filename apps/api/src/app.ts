@@ -26,21 +26,7 @@ export function createApp(options: AppOptions = {}) {
   app.use(helmet());
   app.use(cors(corsOptions));
 
-  // Capture the exact raw request body for webhook signature verification.
-  app.use(
-    express.json({
-      limit: '100kb',
-      verify: (req, _res, buf) => {
-        if (
-          (req as { originalUrl?: string }).originalUrl?.startsWith(
-            '/api/v1/webhooks/',
-          )
-        ) {
-          (req as { rawBody?: Buffer }).rawBody = Buffer.from(buf);
-        }
-      },
-    }),
-  );
+    app.use(express.json({ limit: '100kb' }));
 
   app.use(cookieParser());
 

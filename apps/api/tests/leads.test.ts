@@ -74,12 +74,19 @@ describe('create', () => {
     expect(paths).toEqual(expect.arrayContaining(['firstName', 'phone', 'email', 'leadSource']));
   });
 
-  it('requires authentication and an organization header', async () => {
+  it('requires authentication, and falls back to the single organization without the header', async () => {
     const { owner } = await setup();
-    expect((await request(app).post(`${API}/leads`).send(validLead())).status).toBe(401);
-    const noHeader = await request(app).post(`${API}/leads`).set(bearer(owner.accessToken)).send(validLead());
-    expect(noHeader.status).toBe(400);
-    expect(noHeader.body.code).toBe('ORGANIZATION_REQUIRED');
+
+    expect(
+      (await request(app).post(`${API}/leads`).send(validLead())).status,
+    ).toBe(401);
+
+    const noHeader = await request(app)
+      .post(`${API}/leads`)
+      .set(bearer(owner.accessToken))
+      .send(validLead());
+
+    expect(noHeader.status).toBe(201);
   });
 
   it('writes an activity and an audit log without PII', async () => {

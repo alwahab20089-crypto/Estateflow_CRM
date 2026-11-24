@@ -6,7 +6,6 @@ import { requireMembership } from '../../middleware/require-membership';
 import { resolveOrganization } from '../../middleware/resolve-organization';
 import { validate } from '../../middleware/validate';
 import { requireObjectIdParam } from '../../utils/require-object-id';
-import { enforceLimit } from '../commercial/entitlements.middleware';
 import * as controller from './lead.controller';
 import {
   assignSchema,
@@ -27,7 +26,7 @@ export function createLeadRouter(limiters: RateLimiters) {
   const id = requireObjectIdParam('id', 'Lead');
 
   // authenticate -> resolveOrganization -> requireMembership
-  // -> rate limit -> id check -> authorize -> entitlement -> validate -> controller
+  // -> rate limit -> id check -> authorize -> validate -> controller
   router.use(authenticate, resolveOrganization('header'), requireMembership, writesOnly);
 
   router.get('/', authorize('leads:read'), controller.list);
@@ -35,7 +34,6 @@ export function createLeadRouter(limiters: RateLimiters) {
   router.post(
     '/',
     authorize('leads:create'),
-    enforceLimit('leads'),
     validate({ body: createLeadSchema }),
     controller.create,
   );
@@ -56,7 +54,6 @@ export function createLeadRouter(limiters: RateLimiters) {
     '/:id/status',
     id,
     authorize('leads:update'),
-    enforceLimit('leads'),
     validate({ body: statusSchema }),
     controller.updateStatus,
   );
@@ -73,7 +70,6 @@ export function createLeadRouter(limiters: RateLimiters) {
     '/:id/restore',
     id,
     authorize('leads:delete'),
-    enforceLimit('leads'),
     controller.restore,
   );
 
