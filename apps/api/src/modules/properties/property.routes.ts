@@ -14,6 +14,7 @@ import {
   propertyStatusSchema,
   updatePropertySchema,
 } from './property.validation';
+import { enforceLimit } from '../licensing/entitlements.middleware';
 
 export function createPropertyRouter(limiters: RateLimiters) {
   const router = Router();
@@ -31,6 +32,7 @@ export function createPropertyRouter(limiters: RateLimiters) {
   router.post(
     '/',
     authorize('properties:create'),
+    enforceLimit('properties'),
     validate({ body: createPropertySchema }),
     controller.create,
   );
@@ -55,11 +57,23 @@ export function createPropertyRouter(limiters: RateLimiters) {
     controller.status,
   );
 
-  router.patch('/:id/assign', id, authorize('properties:assign'), validate({ body: assignSchema }), controller.assign);
+  router.patch(
+    '/:id/assign',
+    id,
+    authorize('properties:assign'),
+    validate({ body: assignSchema }),
+    controller.assign,
+  );
 
   router.post('/:id/images', id, authorize('properties:update'), parseImageUpload, controller.addImages);
 
-  router.delete('/:id/images/:imageId', id, imageId, authorize('properties:update'), controller.removeImage);
+  router.delete(
+    '/:id/images/:imageId',
+    id,
+    imageId,
+    authorize('properties:update'),
+    controller.removeImage,
+  );
 
   router.post(
     '/:id/restore',

@@ -11,3 +11,4 @@ coverage/
 .vscode/
 mongo-data/
 uploads/
+licensing/license-private.pem

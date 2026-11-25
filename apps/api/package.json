@@ -13,7 +13,8 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "license": "tsx src/scripts/license-tool.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

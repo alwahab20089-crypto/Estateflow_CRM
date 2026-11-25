@@ -16,6 +16,7 @@ import {
   reopenSchema,
   updateDealSchema,
 } from './deal.validation';
+import { enforceLimit } from '../licensing/entitlements.middleware';
 
 export function createDealRouter(limiters: RateLimiters) {
   const router = Router();
@@ -32,6 +33,7 @@ export function createDealRouter(limiters: RateLimiters) {
   router.post(
     '/',
     authorize('deals:create'),
+    enforceLimit('deals'),
     validate({ body: createDealSchema }),
     controller.create,
   );
@@ -56,11 +58,29 @@ export function createDealRouter(limiters: RateLimiters) {
     controller.stage,
   );
 
-  router.patch('/:id/assign', id, authorize('deals:assign'), validate({ body: assignSchema }), controller.assign);
+  router.patch(
+    '/:id/assign',
+    id,
+    authorize('deals:assign'),
+    validate({ body: assignSchema }),
+    controller.assign,
+  );
 
-  router.post('/:id/close-won', id, authorize('deals:update'), validate({ body: closeWonSchema }), controller.closeWon);
+  router.post(
+    '/:id/close-won',
+    id,
+    authorize('deals:update'),
+    validate({ body: closeWonSchema }),
+    controller.closeWon,
+  );
 
-  router.post('/:id/close-lost', id, authorize('deals:update'), validate({ body: closeLostSchema }), controller.closeLost);
+  router.post(
+    '/:id/close-lost',
+    id,
+    authorize('deals:update'),
+    validate({ body: closeLostSchema }),
+    controller.closeLost,
+  );
 
   router.post(
     '/:id/reopen',
@@ -69,6 +89,7 @@ export function createDealRouter(limiters: RateLimiters) {
     validate({ body: reopenSchema }),
     controller.reopen,
   );
+
   router.get('/:id/activities', id, authorize('activities:read'), controller.activities);
 
   return router;

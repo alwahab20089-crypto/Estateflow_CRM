@@ -13,6 +13,7 @@ import { snapshotEntity } from './automation.events';
 import { AutomationExecution, AutomationWorkflow } from './automation.model';
 import { createWorkflowSchema, parseTriggerConfig, type Action, type CreateWorkflowInput, type UpdateWorkflowInput } from './automation.validation';
 import { evaluateConditions, evaluateEach } from './condition.evaluator';
+import { assertFeature } from '../licensing/entitlements.service';
 
 const oid = (v: string) => new Types.ObjectId(v);
 const scope = (t: TenantContext) => ({ organizationId: oid(t.organizationId), deletedAt: null });
@@ -80,13 +81,9 @@ async function assertReferencedMembers(t: TenantContext, actions: Action[]) {
 /**
  * Validate that a workflow can be activated.
  * Email actions require both a configured email provider and
- * the advancedNotifications subscription entitlement.
+ * the advancedNotifications license feature.
  */
-/**
- * Validate that a workflow can be activated.
- * Email actions require a configured email provider.
- */
-function assertActivatable(actions: Action[]) {
+async function assertActivatable(organizationId: string, actions: Action[]) {
   const hasEmailAction = actions.some(
     (action) => action.type === 'SEND_EMAIL_NOTIFICATION',
   );
@@ -97,6 +94,8 @@ function assertActivatable(actions: Action[]) {
       'EMAIL_PROVIDER_DISABLED',
     );
   }
+
+  if (hasEmailAction) await assertFeature(organizationId, 'advancedNotifications');
 }
 
 async function find(t: TenantContext, id: string) {
@@ -280,7 +279,7 @@ export async function updateWorkflow(
 
   // An active workflow must keep satisfying the activation requirements.
   if (w.status === 'ACTIVE') {
-    assertActivatable(merged.actions);
+    await assertActivatable(t.organizationId, merged.actions);
   }
 
   const definitionChanged = [
@@ -417,7 +416,7 @@ export async function activateWorkflow(
   await assertReferencedMembers(t, w.actions);
 
   // Check the email provider configuration before activation.
-  assertActivatable(w.actions);
+  await assertActivatable(t.organizationId, w.actions);
   const u: any = await AutomationWorkflow.findOneAndUpdate(
     {
       _id: w._id,

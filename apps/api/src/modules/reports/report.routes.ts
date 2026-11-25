@@ -6,6 +6,7 @@ import { requireMembership } from '../../middleware/require-membership';
 import { resolveOrganization } from '../../middleware/resolve-organization';
 import { AppError } from '../../utils/app-error';
 import * as controller from './report.controller';
+import { requireFeature } from '../licensing/entitlements.middleware';
 
 export function createReportRouter() {
   const router = Router();
@@ -29,6 +30,7 @@ export function createReportRouter() {
   router.get(
     '/:reportId/export',
     authorize('reports:read', 'reports:export'),
+    requireFeature('csvExport'),
     limit(10),
     controller.exportCsv,
   );

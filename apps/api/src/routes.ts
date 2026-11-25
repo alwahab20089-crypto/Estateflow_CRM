@@ -13,6 +13,7 @@ import { createNotificationRouter } from './modules/notifications/notification.r
 import { createAnalyticsRouter } from './modules/analytics/analytics.routes';
 import { createReportRouter } from './modules/reports/report.routes';
 import { createAutomationRouter } from './modules/automations/automation.routes';
+import { createLicenseRouter } from './modules/licensing/license.routes';
 
 export function createApiRouter(options: RateLimitOptions = {}) {
   const router = Router();
@@ -34,6 +35,7 @@ export function createApiRouter(options: RateLimitOptions = {}) {
   router.use('/tasks', createTaskRouter(limiters));
   router.use('/notifications', createNotificationRouter(limiters));
   router.use('/automations', createAutomationRouter(limiters));
+  router.use('/licenses', createLicenseRouter(limiters));
 
   return router;
 }

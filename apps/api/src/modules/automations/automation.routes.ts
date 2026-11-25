@@ -12,6 +12,7 @@ import {
   testWorkflowSchema,
   updateWorkflowSchema,
 } from './automation.validation';
+import { requireFeature } from '../licensing/entitlements.middleware';
 
 export function createAutomationRouter(limiters: RateLimiters) {
   const router = Router();
@@ -31,6 +32,7 @@ export function createAutomationRouter(limiters: RateLimiters) {
   router.post(
     '/',
     authorize('automations:create'),
+    requireFeature('automations'),
     validate({ body: createWorkflowSchema }),
     c.create,
   );
@@ -47,13 +49,22 @@ export function createAutomationRouter(limiters: RateLimiters) {
 
   router.delete('/:workflowId', wf, authorize('automations:delete'), c.remove);
 
-  router.post('/:workflowId/activate', wf, authorize('automations:activate'), c.activate);
+  // Pausing and deleting stay available without the feature, so a lapsed license can always turn automations off.
+  router.post(
+    '/:workflowId/activate',
+    wf,
+    authorize('automations:activate'),
+    requireFeature('automations'),
+    c.activate,
+  );
+
   router.post('/:workflowId/pause', wf, authorize('automations:activate'), c.pause);
 
   router.post(
     '/:workflowId/test',
     wf,
     authorize('automations:execute'),
+    requireFeature('automations'),
     validate({ body: testWorkflowSchema }),
     c.test,
   );
@@ -73,6 +84,7 @@ export function createAutomationRouter(limiters: RateLimiters) {
     wf,
     ex,
     authorize('automations:retry'),
+    requireFeature('automations'),
     c.retry,
   );
 

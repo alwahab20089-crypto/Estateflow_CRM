@@ -13,6 +13,7 @@ import { automationContext } from './automation.context';
 import { AutomationEvent, AutomationExecution, AutomationWorkflow } from './automation.model';
 import { scanTimeTriggers } from './automation.scanner';
 import { evaluateConditions } from './condition.evaluator';
+import { hasFeature } from '../licensing/entitlements.service';
 
 /** Same shape as the Phase 7 reminder worker id. */
 const workerId = `${os.hostname()}:${process.pid}:${randomUUID().slice(0, 8)}`;
@@ -153,15 +154,20 @@ async function handleEvent(ev: any): Promise<number> {
         });
     }
 
-    const workflows: any[] = await AutomationWorkflow.find({
-        organizationId: ev.organizationId,
-        status: 'ACTIVE',
-        triggerType: ev.type,
-        deletedAt: null,
-        ...(ev.workflowId ? { _id: ev.workflowId } : {}),
-    })
-        .limit(200)
-        .lean();
+        // Without the "automations" license feature (no license, expired, or an edition that excludes it) nothing runs.
+    // Events that arrive in that period are consumed without creating executions.
+    const licensed = await hasFeature(String(ev.organizationId), 'automations');
+    const workflows: any[] = licensed
+        ? await AutomationWorkflow.find({
+            organizationId: ev.organizationId,
+            status: 'ACTIVE',
+            triggerType: ev.type,
+            deletedAt: null,
+            ...(ev.workflowId ? { _id: ev.workflowId } : {}),
+        })
+            .limit(200)
+            .lean()
+        : [];
 
     let created = 0;
 

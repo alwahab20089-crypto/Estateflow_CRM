@@ -6,6 +6,7 @@ import { requireMembership } from '../../middleware/require-membership';
 import { resolveOrganization } from '../../middleware/resolve-organization';
 import { AppError } from '../../utils/app-error';
 import * as controller from './analytics.controller';
+import { requireFeature } from '../licensing/entitlements.middleware';
 
 export function createAnalyticsRouter() {
   const router = Router();
@@ -22,6 +23,8 @@ export function createAnalyticsRouter() {
 
   router.use(authenticate, resolveOrganization('header'), requireMembership);
 
+  router.use(limiter);
+  router.use(requireFeature('analytics'));
   router.use(limiter);
 
   router.get('/overview', authorize('analytics:read'), controller.getOverview);

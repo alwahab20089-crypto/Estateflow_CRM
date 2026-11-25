@@ -16,6 +16,7 @@ import {
 } from './lead.validation';
 import * as contactController from '../contacts/contact.controller';
 import { convertLeadSchema } from '../contacts/contact.validation';
+import { enforceLimit } from '../licensing/entitlements.middleware';
 
 export function createLeadRouter(limiters: RateLimiters) {
   const router = Router();
@@ -89,6 +90,20 @@ export function createLeadRouter(limiters: RateLimiters) {
     authorize('leads:convert'),
     validate({ body: convertLeadSchema }),
     contactController.convertLead,
+  );
+  router.post(
+    '/',
+    authorize('leads:create'),
+    enforceLimit('leads'),
+    validate({ body: createLeadSchema }),
+    controller.create,
+  );
+  router.post(
+    '/:id/restore',
+    id,
+    authorize('leads:delete'),
+    enforceLimit('leads'),
+    controller.restore,
   );
 
   return router;

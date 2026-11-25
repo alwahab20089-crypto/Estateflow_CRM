@@ -172,3 +172,8 @@ export const MANDATORY_NOTIFICATION_TYPES: readonly NotificationType[] = [
   'TASK_OVERDUE',
   'AUTOMATION_FAILED',
 ];
+export const LICENSE_EDITIONS = ['STANDARD', 'PROFESSIONAL', 'AGENCY'] as const;
+export type LicenseEdition = (typeof LICENSE_EDITIONS)[number];
+/** INACTIVE = deactivated by the owner. An ACTIVE row past its end date is treated as expired by the entitlement code. */
+export const LICENSE_STATUSES = ['INACTIVE', 'ACTIVE', 'REVOKED'] as const;
+export type LicenseStatus = (typeof LICENSE_STATUSES)[number];

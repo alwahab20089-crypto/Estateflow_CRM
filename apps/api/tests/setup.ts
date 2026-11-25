@@ -1,6 +1,7 @@
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'node:url';
 import { afterAll, afterEach, beforeAll } from 'vitest';
+import { generateKeyPairSync } from 'node:crypto';
 
 dotenv.config({
   path: fileURLToPath(new URL('../.env', import.meta.url)),
@@ -40,12 +41,21 @@ process.env.FRONTEND_URL = 'http://localhost:5173';
 process.env.LOG_LEVEL = 'silent';
 process.env.AUTH_RATE_LIMIT_MAX = '1000';
 process.env.LOGIN_FAILURE_LIMIT_MAX = '1000';
+// A throwaway license keypair per test file: the public half is the install's LICENSE_PUBLIC_KEY, the private half
+// lets licensing.test.ts issue keys.
+const licenseKeys = generateKeyPairSync('ed25519');
+process.env.LICENSE_PUBLIC_KEY = licenseKeys.publicKey.export({ type: 'spki', format: 'pem' }).toString();
+process.env.TEST_LICENSE_PRIVATE_KEY = licenseKeys.privateKey.export({ type: 'pkcs8', format: 'pem' }).toString();
 
 beforeAll(async () => {
   const mongoose = (await import('mongoose')).default;
   const { connectDatabase } = await import('../src/config/database');
 
   await connectDatabase();
+  // Ordinary tests run with unlimited entitlements. licensing.test.ts registers the real license source again.
+  const { registerEntitlementSource } = await import('../src/modules/licensing/entitlements.service');
+  const { UNLIMITED_ENTITLEMENTS } = await import('./unlimited-entitlements');
+  registerEntitlementSource(async () => UNLIMITED_ENTITLEMENTS);
 
   await mongoose.connection.dropDatabase(); // safe: name verified above
 
