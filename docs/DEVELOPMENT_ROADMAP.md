@@ -1,22 +1,30 @@
 # Development Roadmap
 
-| Phase | Goal | Key deliverables | New dependencies |
-|---|---|---|---|
-| 1 | Planning and architecture | Docs, structure, README | None (Prettier optional) |
-| 2 | Foundation | npm workspaces, TS configs, ESLint/Prettier, Vitest; API bootstrap, env validation, Mongo connection, error handler, health route, shared package | typescript, tsx, express, mongoose, zod, helmet, cors, cookie-parser, pino, dotenv, vitest, supertest, eslint, prettier |
-| 3 | Auth and tenancy | Users, orgs, members, invitations, JWT + refresh rotation, middleware chain, audit service, tenant-scoped repository, isolation tests | jsonwebtoken, argon2 (or bcrypt), express-rate-limit |
-| 4 | Leads and contacts | CRUD, filters, search, assignment, status flow, conversion, activities | None |
-| 5 | Properties, tasks, notifications | CRUD, images/upload, reminders, notification generation | multer (or storage SDK) |
-| 6 | Frontend app | Vite + React shell, auth flow, layouts, leads/contacts UI | react, react-router, @tanstack/react-query, react-hook-form, @hookform/resolvers, tailwindcss, shadcn/ui, lucide-react |
-| 7 | Properties/tasks UI and analytics | Pages, dashboards | recharts |
-| 9 | Self-hosted layer | License module, setup wizard, Docker Compose, install docs | None (Docker tooling) |
-| 10 | Hardening and release | Security review, load testing, backups, CI/CD, user docs, sales pages | k6 or similar (dev) |
+| Phase | Goal | Status |
+|---|---|---|
+| 1 | Planning and architecture documents | Done |
+| 2 | Foundation: monorepo, TypeScript, tooling, API bootstrap, env validation, database, error handling, health | Done |
+| 3 | Auth and tenancy: users, organizations, members, invitations, JWT with refresh rotation, middleware chain, audit | Done |
+| 4-7 | CRM core and web app: leads, contacts, properties, deals, tasks, activities, React application | Done |
+| 8 | Analytics and reports (API and web) | Done |
+| 9 | Notifications and workflow automation (API and web) | Done |
+| 10 | Commercial features, self-hosted only | API done; web in progress; Docker packaging next |
+| 11 | Hardening and release: security review, load testing, backups, CI/CD, user docs | Planned |
+
+## Phase 10 breakdown
+| Step | Content | Status |
+|---|---|---|
+| 10a API | Signed offline licenses, entitlements, limit and feature enforcement, `/licenses` routes, vendor key tool, first-run-only registration | Done |
+| 10b Web | License settings page, expiry and grace banner, disabled actions at a limit or without a feature, first-run setup screen, license error handling | In progress |
+| 10c Docker | Dockerfiles for `api` and `web`, `docker-compose.yml` with a MongoDB replica set and volume, healthchecks, production env example | Planned |
 
 ## Phase gates
-Each phase ends with passing tests, updated docs, and zero known cross-tenant leakage bugs.
+Each phase ends with passing tests, updated docs, and zero known cross-tenant leakage.
 
-## Risks
-- Offline license enforcement is bypassable; set expectations commercially.
-- MongoDB transactions (replica set) are needed for some multi-document operations; the Docker
-  Compose Mongo should run as a single-node replica set.
-- Property pricing: decide integer minor units vs Decimal128 before Phase 5.
+## Risks and decisions
+- Offline license enforcement is bypassable; set expectations commercially. Keys are not machine-bound.
+- Edition presets (`EDITION_PRESETS`) are placeholders until pricing is decided.
+- A fresh install is restricted until a license is activated; change `RESTRICTED_ENTITLEMENTS` for starter limits.
+- MongoDB transactions need a replica set; Docker Compose must run MongoDB as a single-node replica set.
+- The invitation HTTP routes (invite, accept) are not built yet; `createInvitation` already enforces the member limit.
+- The `platformRole` field on users is legacy and unused by the self-hosted edition.

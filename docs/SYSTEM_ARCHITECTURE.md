@@ -1,98 +1,105 @@
 # System Architecture
 
 ## 1. Style: modular monolith
-One deployable API, one SPA, one MongoDB. Modules are isolated by folder and by dependency
-rules (see below), so extraction into services is possible later but not planned.
+One deployable API, one SPA, one MongoDB. Modules are isolated by folder and by dependency rules, so extraction into
+services is possible later but not planned.
 
 ```mermaid
 flowchart LR
   Browser[React SPA] -->|HTTPS /api/v1| API[Express API]
   API --> Core[CRM modules]
-  API --> Licensing[Licensing module]
+  API --> Lic[Licensing module]
+  Core -->|requireFeature / enforceLimit / assert*| Lic
   Core --> DB[(MongoDB)]
-  Licensing --> DB
-  Licensing --> Lic[License service]
+  Lic --> DB
+  API --> Jobs[Background workers]
+  Jobs --> DB
 ```
+Background workers run inside the API process: the task reminder scheduler and the automation engine (event queue,
+time-trigger scanner, execution runner). Both claim work with database leases, so several API instances are safe.
 
 ## 2. Layers and dependency rules
 ```
 routes -> controllers -> services -> models
-                          |
-                          +-> entitlements (interface only)
 ```
-- Controllers handle HTTP only (parse, call service, shape response).
-- Services contain business logic and are framework-free (no `req`/`res`).
-- Models contain schema, indexes, validation.
-- **CRM modules may import `entitlements` and `audit`, never `licensing`.**
-- `packages/shared` is imported by both apps; it contains no Node- or browser-specific code.
+- Controllers handle HTTP only (parse, call the service, shape the response).
+- Services hold business logic and are framework free (no `req` or `res`).
+- Models hold schema, indexes and validation.
+- CRM modules use licensing only through `licensing/entitlements.middleware.ts` (route guards) and
+  `licensing/entitlements.service.ts` (`assertWithinLimit`, `assertFeature`, `hasFeature`). They never read license rows or keys.
+- Multi-document changes go through `runUnitOfWork` (a transaction, with a standalone fallback).
+- `packages/shared` is imported by both apps and contains no Node- or browser-specific code.
 
-## 3. Backend architecture
+## 3. Backend layout
 ```
 apps/api/src/
-  config/          env validation (Zod), constants
-  middleware/      authenticate, resolveOrganization, requireMembership,
-                   authorize, entitlement guard, validate, rateLimit, errorHandler
+  config/        env validation (Zod), database, cors
+  middleware/    authenticate, resolve-organization, require-membership, authorize, validate,
+                 rate-limit, csrf, request-context, error-handler, not-found
   modules/
-    auth/ users/ organizations/ members/ leads/ contacts/ properties/
-    tasks/ activities/ notifications/ analytics/ audit/
-    commercial/
-      entitlements/     EntitlementProvider interface + factory
-      licensing/        license activation, validation, limits
-  utils/ types/ app.ts server.ts
+    auth users organizations members invitations refresh-tokens audit activities
+    leads contacts properties deals tasks notifications
+    analytics reports automations
+    licensing/   license.catalog, license.model, license.crypto, entitlements.service,
+                 entitlements.middleware, license.service, license.validation, license.routes
+    health
+  scripts/       license-tool.ts (vendor CLI: keygen, issue, inspect)
+  utils/         app-error, api-response, async-handler, transaction, token, cookies, mailer ...
+  routes.ts  app.ts  server.ts  constants.ts
 ```
-Each CRM module contains `*.routes.ts`, `*.controller.ts`, `*.service.ts`, `*.model.ts`,
-`*.validators.ts`. Modules only create the files they need.
+Request chain for an organization route:
+`requestContext -> helmet, cors, global rate limit -> body parser -> authenticate -> resolveOrganization -> requireMembership -> (requireFeature | authorize | enforceLimit) -> validate -> controller -> service`.
 
-## 4. Frontend architecture
+## 4. Frontend layout
 ```
 apps/web/src/
-  components/   ui/ (shadcn), shared presentational components
-  features/     auth, leads, contacts, properties, tasks, analytics, settings
-                (each: components, hooks, services, types)
-  layouts/      AuthLayout, AppLayout
-  pages/        route-level components, thin
-  routes/       router config, guards
-  hooks/ services/ (api client) types/ utils/
+  components/  ui and shared presentational components
+  features/    auth, dashboard, leads, contacts, properties, deals, tasks, calendar, notifications,
+               analytics, reports, automations, settings
+  layouts/ pages/ routes/ providers/ hooks/ services/ (api client) lib/ types/
 ```
-- Server state: TanStack Query. Forms: React Hook Form + Zod schemas from `packages/shared`.
-- The access token lives **in memory only**. The refresh token is an httpOnly cookie.
-- The UI may hide features based on entitlements, but the **server is the authority**.
+- Server state: TanStack Query. Forms: React Hook Form with Zod.
+- The access token lives in memory only; the refresh token is an httpOnly cookie.
+- The UI may hide or disable controls based on `GET /licenses/status`, but **the server is the authority**.
 
 ## 5. Edition
-EstateFlow ships as a single self-hosted edition, run by the customer with Docker Compose under a
-license. See `SELF_HOSTED.md`. CRM modules read entitlements through the `EntitlementProvider`
-interface, whose only implementation is `LicenseEntitlementProvider`.
+EstateFlow ships as a single self-hosted edition run by the customer under a license (see `SELF_HOSTED.md`). There is no
+deployment-mode switch and no other entitlement source.
 
 ```mermaid
 flowchart TD
-  Req[Request with verified membership] --> L[LicenseEntitlementProvider]
-  L --> Core[CRM modules call EntitlementProvider]
+  Req[Request with verified membership] --> G[requireFeature / enforceLimit]
+  G --> E[getOrganizationEntitlements, 15 s cache]
+  E --> S[licenseEntitlementSource]
+  S --> L[(licenses collection, signed license copied at activation)]
 ```
 
-## 6. Entitlement abstraction
+## 6. Entitlements
 ```ts
-interface EntitlementProvider {
-  getEntitlements(orgId: string): Promise<Entitlements>; // status, features, limits
-  assertFeature(orgId: string, feature: string): Promise<void>;
-  assertWithinLimit(orgId: string, limit: 'users' | 'leads' | 'properties', delta?: number): Promise<void>;
-}
+getOrganizationEntitlements(orgId): Promise<Entitlements>
+// { source, edition, state, features, limits, validUntil, graceEndsAt }
 ```
-CRM services call this interface and never know how entitlements are provided.
+- Features and limits come from the ACTIVE license row. No license, an expired license beyond the grace period, a deactivated
+  or revoked license give `RESTRICTED_ENTITLEMENTS` (no features, every limit 0).
+- `registerEntitlementSource` swaps the source (tests register an unlimited one).
+- Counting and locking: `countUsage` derives usage from the records themselves; `acquireUsageSlot` serializes check-then-create per organization.
 
 ## 7. Deployment topology
 ```mermaid
 flowchart LR
-  Proxy[Reverse proxy / TLS] --> Web[web: static files via nginx]
+  Proxy[Reverse proxy / TLS] --> Web[web: nginx, static files]
   Proxy --> Api[api: Node]
-  Api --> Mongo[(MongoDB)]
+  Api --> Mongo[(MongoDB single-node replica set)]
 ```
-- **Self-hosted:** `docker compose up` runs `web`, `api`, `mongo` with a `.env` file.
+Target: `docker compose up` runs `web`, `api` and `mongo` from a `.env` file. Today only `docker/docker-compose.dev.yml` (MongoDB) exists.
 
 ## 8. Key decisions
 | Decision | Reason |
 |---|---|
-| Modular monolith | Small team, simpler ops, enough scalability |
-| Shared Zod schemas | One validation source for client and server |
-| Entitlement interface | Keeps licensing logic out of CRM code |
-| Single-DB, `organizationId` multi-tenancy | Isolation does not depend on how many organizations exist; cheapest to operate |
-| Access token in memory + httpOnly refresh cookie | Reduces XSS token theft |
+| Modular monolith | Small team, simple operations, enough scalability |
+| Self-hosted only, one build | No billing, no mode switch, less to secure and support |
+| Offline signed licenses | No license server to run; installs verify keys with a public key |
+| Limits hard on create, never destructive | A lapsed license can never cost a customer their data |
+| Single database, `organizationId` scoping | Isolation does not depend on how many organizations exist |
+| Access token in memory plus httpOnly refresh cookie | Reduces XSS token theft |
+| Money as integer minor units | Exact arithmetic, no float drift |

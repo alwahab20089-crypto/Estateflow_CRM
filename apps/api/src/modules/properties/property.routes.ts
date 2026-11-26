@@ -79,6 +79,7 @@ export function createPropertyRouter(limiters: RateLimiters) {
     '/:id/restore',
     id,
     authorize('properties:delete'),
+    enforceLimit('properties'),
     controller.restore,
   );
 

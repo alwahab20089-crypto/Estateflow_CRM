@@ -23,7 +23,7 @@ Archived (soft-deleted) records are never counted. Previous period = the same nu
 | Tasks due today | open, `dueAt` inside today's calendar day in the report timezone | none (snapshot) |
 | Task completion rate | COMPLETED ÷ (COMPLETED + still open) among tasks whose due date already passed inside the range. Cancelled tasks and future-due tasks are excluded | percentage points |
 | On-time rate | of the same tasks, completed with `completedAt` ≤ `dueAt` | – |
-
+**Licensing:** every `/analytics/*` route needs the license feature `analytics` (403 `FEATURE_NOT_LICENSED` without it), and report export needs `csvExport`.
 **Collected revenue** is not available: EstateFlow has no payment or transaction records. `/analytics/revenue` returns `isCollectedRevenue: false`.
 
 **Attribution:** current assignee only (no assignment history). Unassigned records are separate; records of removed members are grouped as "Former members". No ranking is produced.

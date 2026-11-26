@@ -1,162 +1,166 @@
 # Database Schema (MongoDB / Mongoose)
 
 ## Global conventions
-- `timestamps: true` on all schemas (except append-only: Activities/AuditLogs use `createdAt` only).
-- `_id` is ObjectId; references use `ref`.
-- Org-owned collections always have `organizationId` (required, indexed, first field in compound indexes).
-- Emails are lowercased and trimmed. Enums are defined in `packages/shared` and reused in Mongoose.
-- Business entities use **soft delete** (`deletedAt`); hard deletes are admin-only retention jobs.
-- No plaintext passwords, tokens, or license keys are stored. Only hashes.
+- `timestamps: true` on schemas (append-only collections keep only `createdAt`).
+- `_id` is an ObjectId; references use `ref`. Mongoose pluralizes model names (`Lead` is the `leads` collection).
+- Org-owned collections have a required `organizationId`, the first field of their compound indexes.
+- Emails are lowercased and trimmed. Enum values live in `apps/api/src/constants.ts`.
+- Business records use **soft delete** (`deletedAt`, `deletedBy`).
+- Money is stored as **integer minor units** with a currency code, and is never summed across currencies.
+- No plaintext passwords, tokens or license keys are stored: only hashes.
+- Search uses a `searchKeywords` array (`select: false`) and sort helpers such as `nameSort`, `statusRank`, `priorityRank`.
+  They are derived fields kept by the services.
 
-## Changes from the original brief (additive, no conflicts)
-| Addition | Reason |
+## Collections
+| Group | Models |
 |---|---|
-| `RefreshTokens` collection | Needed for rotation, reuse detection, and revocation |
-| `Invitations` collection | Invites for users who may not exist yet (token hash, expiry) |
-| `deletedAt` on Leads/Contacts/Properties/Tasks | Preserves history, prevents accidental loss |
-| `OrganizationMembers.status` + permission overrides | Supports suspension and custom permissions |
-| `Leads.convertedContactId`, `wonAt`, `lostAt`, `lostReason` | Lifecycle history |
+| Identity and tenancy | `User`, `Organization`, `OrganizationMember`, `Invitation`, `RefreshToken`, `PasswordResetToken` |
+| CRM | `Lead`, `Contact`, `Property`, `Deal`, `Task`, `Activity` |
+| Notifications | `Notification`, `NotificationPreference` |
+| Automation | `AutomationWorkflow`, `AutomationEvent`, `AutomationExecution`, `EmailDelivery` |
+| Audit | `AuditLog` |
+| Licensing | `License`, `UsageLock` |
 
-## Collection scope
-| Collection | Notes |
-|---|---|
-| Users, Organizations, OrganizationMembers, Invitations, RefreshTokens | Identity and tenancy |
-| Leads, Contacts, Properties, Tasks, Activities, Notifications, AuditLogs | CRM data |
-| Licenses | Signed licenses, key stored as hash |
+## Identity and tenancy
 
-## Core collections
+### User
+name (2-100), email (unique, lowercase), passwordHash (`select: false`), avatar, phone, status (ACTIVE, SUSPENDED, DELETED),
+emailVerified, platformRole (`NONE`, `PLATFORM_ADMIN`; legacy, unused by the self-hosted edition), tokenVersion, lastLoginAt, deletedAt.
+Index: `{email:1}` unique.
 
-### Users
-| Field | Type | Rules |
-|---|---|---|
-| name | String | required, 2-100 |
-| email | String | required, unique, lowercase |
-| passwordHash | String | required, `select: false` (argon2id or bcrypt) |
-| avatar, phone | String | optional |
-| status | Enum | ACTIVE, SUSPENDED, DELETED |
-| emailVerified | Boolean | default false |
-| tokenVersion | Number | bump to invalidate all sessions |
-| lastLoginAt | Date | |
-
-Indexes: `{email:1}` unique.
-
-### Organizations
-name, slug (unique, lowercase), logo, email, phone, address `{line1, city, state, country, postalCode}`,
-ownerId -> Users, timezone (IANA), currency (ISO 4217), status (ACTIVE, SUSPENDED, DELETED).
+### Organization
+name, slug (unique), logo, email, phone, address `{line1, city, state, country, postalCode}`, ownerId, timezone (IANA, default UTC),
+currency (ISO 4217, default USD), status (ACTIVE, SUSPENDED, DELETED), deletedAt.
 Indexes: `{slug:1}` unique, `{ownerId:1}`.
 
-### OrganizationMembers
-organizationId, userId, role (OWNER, ADMIN, MANAGER, AGENT), `permissions` (extra grants, string[]),
-`deniedPermissions` (string[]), invitationStatus (PENDING, ACCEPTED, DECLINED, REVOKED),
-status (ACTIVE, SUSPENDED), joinedAt.
-Indexes: `{organizationId:1, userId:1}` **unique**, `{userId:1}`, `{organizationId:1, role:1}`.
-Rule: exactly one OWNER per organization (enforced in service, verified by partial unique index
-`{organizationId:1}` where `role:'OWNER'`).
+### OrganizationMember
+organizationId, userId, role (OWNER, ADMIN, MANAGER, AGENT), permissions (extra grants), deniedPermissions,
+invitationStatus (PENDING, ACCEPTED, DECLINED, REVOKED; default ACCEPTED), status (ACTIVE, SUSPENDED), joinedAt.
+Indexes: `{organizationId:1, userId:1}` unique, `{userId:1}`, `{organizationId:1, role:1}`, and a partial unique index
+that allows one OWNER per organization.
 
-### Leads
-| Field | Notes |
-|---|---|
-| organizationId | required |
-| assignedTo | -> Users (must be an active member; validated in service) |
-| firstName, lastName, email, phone, alternatePhone | phone normalized to E.164 where possible |
-| leadSource | Enum: WALK_IN, REFERRAL, WEBSITE, FACEBOOK, INSTAGRAM, WHATSAPP, PORTAL, CALL, OTHER |
-| leadType | BUYER, SELLER, TENANT, LANDLORD, INVESTOR |
-| status | NEW, CONTACTED, QUALIFIED, MEETING_SCHEDULED, NEGOTIATION, WON, LOST |
-| priority | LOW, MEDIUM, HIGH, URGENT |
-| budget | `{min, max, currency}` |
-| preferredLocation | String[] |
-| interestedPropertyType | PropertyType[] |
-| notes | String (max 5000) |
-| nextFollowUpAt | Date |
-| convertedContactId, wonAt, lostAt, lostReason | lifecycle |
-| createdBy, deletedAt | |
+### Invitation
+organizationId, email, role (not OWNER), invitedBy, tokenHash (unique), status (PENDING, ACCEPTED, REVOKED, EXPIRED),
+expiresAt, acceptedAt, revokedAt. Indexes: `{tokenHash:1}` unique, `{organizationId:1, email:1}`, TTL on `expiresAt`
+(purged 30 days after expiry). Pending, unexpired invitations count toward the license `members` limit.
 
-Indexes: `{organizationId:1, status:1, createdAt:-1}`, `{organizationId:1, assignedTo:1, status:1}`,
-`{organizationId:1, nextFollowUpAt:1}` (partial: status not WON/LOST), `{organizationId:1, phone:1}`,
-`{organizationId:1, email:1}` (sparse), text index on `firstName, lastName, email, phone`
-(prefix `organizationId` is applied in queries).
-
-### Contacts
-organizationId, leadId (optional), firstName, lastName, email, phone, address, contactType
-(CLIENT, OWNER, TENANT, LANDLORD, PARTNER, OTHER), assignedTo, notes, deletedAt.
-Indexes: `{organizationId:1, phone:1}`, `{organizationId:1, assignedTo:1}`, `{organizationId:1, leadId:1}`.
-
-### Properties
-organizationId, title, description, propertyType (HOUSE, APARTMENT, PLOT, COMMERCIAL, OFFICE,
-FARMHOUSE, OTHER), listingType (SALE, RENT), price (stored as integer minor units or Decimal128),
-currency, location `{type:'Point', coordinates}` (optional), address, city, area, bedrooms,
-bathrooms, areaSize, areaUnit (SQFT, SQM, MARLA, KANAL, ACRE), features String[],
-images `[{url, key, isPrimary}]` (max 20), listingStatus (AVAILABLE, RESERVED, SOLD, RENTED, INACTIVE),
-ownerContactId, assignedTo, createdBy, deletedAt.
-Indexes: `{organizationId:1, listingStatus:1, listingType:1, createdAt:-1}`,
-`{organizationId:1, city:1, area:1}`, `{organizationId:1, price:1}`, `{organizationId:1, assignedTo:1}`,
-`2dsphere` on `location` (optional).
-
-### Tasks
-organizationId, title, description, taskType (CALL, EMAIL, MEETING, VIEWING, FOLLOW_UP, DOCUMENT, OTHER),
-assignedTo, relatedLeadId, relatedContactId, relatedPropertyId, dueDate, priority,
-status (OPEN, IN_PROGRESS, DONE, CANCELLED), completedAt, createdBy, deletedAt.
-Indexes: `{organizationId:1, assignedTo:1, status:1, dueDate:1}`, `{organizationId:1, relatedLeadId:1}`,
-`{organizationId:1, relatedContactId:1}`, `{organizationId:1, relatedPropertyId:1}`.
-
-### Activities (append-only)
-organizationId, userId, entityType (LEAD, CONTACT, PROPERTY, TASK), entityId, activityType
-(CALL, EMAIL, MEETING, NOTE, STATUS_CHANGE, FOLLOW_UP, PROPERTY_VIEWING, OTHER), description,
-metadata (Mixed, size-limited), createdAt.
-Indexes: `{organizationId:1, entityType:1, entityId:1, createdAt:-1}`, `{organizationId:1, userId:1, createdAt:-1}`.
-
-### Notifications
-organizationId, userId, title, message, type (TASK_DUE, LEAD_ASSIGNED, FOLLOW_UP, SYSTEM),
-relatedEntityType, relatedEntityId, readAt, createdAt.
-Indexes: `{organizationId:1, userId:1, readAt:1, createdAt:-1}`; TTL on `createdAt` (e.g., 180 days).
-
-## Security collections
-
-### RefreshTokens
-userId, familyId (UUID), tokenHash (SHA-256, unique), expiresAt, revokedAt, replacedByHash,
-userAgent, ip, createdAt.
+### RefreshToken
+userId, familyId, tokenHash (unique), expiresAt, revokedAt, replacedByTokenId, persistent, userAgent, ip.
 Indexes: `{tokenHash:1}` unique, `{userId:1, familyId:1}`, TTL on `expiresAt`.
 
-### Invitations
-organizationId, email, role, tokenHash (unique), invitedBy, expiresAt, acceptedAt, revokedAt.
-Indexes: `{tokenHash:1}` unique, `{organizationId:1, email:1}`, TTL on `expiresAt` (after retention).
+### PasswordResetToken
+userId, tokenHash (unique), expiresAt, usedAt, createdAt. Indexes: `{tokenHash:1}` unique, `{userId:1, usedAt:1}`, TTL on `expiresAt`.
 
-### AuditLogs (append-only)
-organizationId, actorId, action (e.g., `member.role_changed`),
-resource, resourceId, metadata `{before, after, ip, userAgent, requestId}`, createdAt.
-Indexes: `{organizationId:1, createdAt:-1}`, `{organizationId:1, resource:1, resourceId:1}`, `{actorId:1, createdAt:-1}`.
-Never contains secrets or full PII beyond identifiers. Application code exposes no update/delete.
+## CRM
 
-## Licensing collection
+### Lead
+organizationId, assignedTo, firstName, lastName, email, phone, alternate phone,
+leadSource (WEBSITE, FACEBOOK, INSTAGRAM, WHATSAPP, REFERRAL, WALK_IN, PROPERTY_PORTAL, PHONE_CALL, OTHER),
+leadType (BUYER, SELLER, TENANT, LANDLORD, INVESTOR),
+status (NEW, CONTACTED, QUALIFIED, MEETING_SCHEDULED, NEGOTIATION, WON, LOST), priority (LOW, MEDIUM, HIGH, URGENT),
+budget `{min, max, currency}` (minor units), preferredLocation (max 20), interestedPropertyType, notes (5000),
+nextFollowUpAt, convertedContactId, convertedAt, wonAt, lostAt, lostReason, createdBy, deletedAt, deletedBy,
+plus derived fields (statusRank, priorityRank, nameSort, hasFollowUp, searchKeywords).
+Indexes are all prefixed with `organizationId`: by `deletedAt` and `createdAt`, status, assignee and status, follow-up,
+priority and status rank, `nameSort`, `searchKeywords`, phone, email (sparse), `convertedContactId` (sparse).
 
-### Licenses
-organizationId, licenseKeyHash (SHA-256 of key; unique), keyLast4, edition (STANDARD, PROFESSIONAL, AGENCY),
-status (INACTIVE, ACTIVE, EXPIRED, REVOKED), activatedAt, expiresAt, lastValidatedAt, offlineGraceUntil,
-maxUsers, instanceFingerprint, metadata.
-Indexes: `{licenseKeyHash:1}` unique, `{organizationId:1}`.
+### Contact
+organizationId, linkedLeadId, assignedTo, firstName, lastName, email, phone, contactType (BUYER, SELLER, TENANT, LANDLORD,
+INVESTOR, OTHER), status (ACTIVE, INACTIVE), tags (max 20), preferredContactMethod (PHONE, EMAIL, WHATSAPP, SMS), source,
+createdBy, deletedAt, deletedBy, nameSort, searchKeywords. Indexes prefixed with `organizationId` for type, status,
+assignee, tags, phone, `nameSort`, `searchKeywords`, plus partial unique indexes: one active contact per email per
+organization (`unique_active_email_per_org`) and one contact per lead (`one_contact_per_lead`).
 
-## Relationship diagram
+### Property
+organizationId, title, propertyType (HOUSE, APARTMENT, PLOT, COMMERCIAL, OFFICE, FARMHOUSE, OTHER),
+listingType (SALE, RENT, LEASE), propertyStatus (DRAFT, AVAILABLE, UNDER_OFFER, RESERVED, SOLD, RENTED, LEASED, INACTIVE),
+bedrooms, bathrooms, area, areaUnit (SQFT, SQM, MARLA, KANAL, ACRE), floors, furnishingStatus, parkingSpaces, yearBuilt,
+amenities, latitude, longitude, priceAmount (integer, 1 to 1e13), currency, rentPeriod (DAILY to YEARLY), ownerContactId,
+assignedTo, images (max 20: key, url, mimeType, size, uploadedBy, uploadedAt), primaryImage, closedByDealId, createdBy,
+deletedAt, deletedBy, searchKeywords. Indexes prefixed with `organizationId` for status, type, listing type, assignee,
+city, price, owner contact and `searchKeywords`.
+
+### Deal
+organizationId, title, contactId, leadId, propertyId, dealType (SALE, RENT, LEASE), stage (NEW, QUALIFICATION,
+PROPERTY_MATCHED, VIEWING_SCHEDULED, NEGOTIATION, CONTRACT, WON, LOST), valueAmount (integer minor units), currency,
+probability (0-100), expectedClosingDate, actualClosingDate, assignedTo, stageChangedAt, createdBy, deletedAt, deletedBy,
+searchKeywords. Indexes prefixed with `organizationId` for stage, assignee, property, contact, lead, closing dates.
+A partial unique index (`one_won_deal_per_property`) allows only one WON, non-deleted deal per property.
+
+### Task
+organizationId, title, taskType (CALL, MEETING, PROPERTY_VIEWING, FOLLOW_UP, EMAIL, DOCUMENTATION, GENERAL),
+status (TODO, IN_PROGRESS, COMPLETED, CANCELLED), priority, dueAt, reminderAt, completedAt, assignedTo, createdBy,
+relatedEntityType (LEAD, CONTACT, PROPERTY, DEAL) and relatedEntityId, tags, automationKey (partial unique, so an
+automation never creates the same task twice), reminder bookkeeping (reminderStatus, reminderVersion,
+reminderNextAttemptAt, reminderAttempts, lock fields, reminderDeliveredAt), overdueNotifiedAt, sort helpers, deletedAt.
+
+### Activity (append-only)
+organizationId, userId, entityType (LEAD, CONTACT, PROPERTY, TASK, DEAL, AUTOMATION), entityId, activityType (CALL, EMAIL,
+MEETING, NOTE, STATUS_CHANGE, FOLLOW_UP, PROPERTY_VIEWING, OTHER, CREATED, ASSIGNMENT, UPDATE, CONVERTED),
+description (2000), metadata. Indexes: `{organizationId, entityType, entityId, createdAt:-1}`, `{organizationId, userId, createdAt:-1}`.
+
+## Notifications
+
+### Notification
+organizationId, recipientUserId, type (task, lead, deal, property and automation types), title, message, relatedEntityType,
+relatedEntityId, taskId, isRead, readAt, deliveryKey (partial unique per organization), deletedAt (soft delete keeps the key).
+### NotificationPreference
+organizationId, userId (unique together), preferences (per type). Mandatory types cannot be disabled.
+
+## Automation
+- **AutomationWorkflow:** name, status (DRAFT, ACTIVE, PAUSED, ARCHIVED), version, triggerType (21 triggers), triggerConfig,
+  conditions (max 10, flat), conditionOperator (ALL, ANY), actions (max 5), executionSettings, createdBy, updatedBy,
+  lastExecutedAt, deletedAt.
+- **AutomationEvent:** type, entityType, entityId, workflowId, payload snapshot, idempotencyKey (unique per organization),
+  depth, chain, status (PENDING, PROCESSING, PROCESSED, FAILED), attempts, lease fields. TTL: kept 30 days after processing.
+- **AutomationExecution:** workflowId, workflowVersion, triggerEventId (unique per workflow and event), status, actions,
+  actionResults, attempts, retryCount, depth, lease fields, timings.
+- **EmailDelivery:** userId (a reference; the address is not copied), deliveryKey (unique per organization), provider,
+  status (QUEUED, SENT, FAILED), attempts, error.
+
+## AuditLog (append-only)
+organizationId, actorId, action (for example `deal.won`, `license.deactivated`), resource, resourceId, metadata (sanitized
+before/after, IP, user agent, request id), createdAt. Indexes: `{organizationId, createdAt:-1}`,
+`{organizationId, resource, resourceId}`, `{actorId, createdAt:-1}`. Never contains secrets.
+
+## Licensing
+
+### License
+organizationId, licenseId (the signed `jti`; unique), licenseKeyHash (SHA-256 of the normalized key; unique; `select: false`;
+never returned), keyLast4, licensee, edition (STANDARD, PROFESSIONAL, AGENCY), status (INACTIVE, ACTIVE, REVOKED),
+features, limits (copied from the signed license), issuedAt, activatedAt, expiresAt (null = perpetual), activatedBy.
+An ACTIVE row past `expiresAt` is treated as expired in code, so status alone never grants access.
+Indexes: `{licenseKeyHash:1}` unique, `{licenseId:1}` unique, `{organizationId:1, updatedAt:-1}`, and
+`one_active_license_per_org`: `{organizationId:1}` unique where `status = ACTIVE`.
+
+### UsageLock
+organizationId, key, owner, lockedUntil. A short lease that serializes "check the limit, then create" per organization.
+Index: `{organizationId:1, key:1}` unique.
+
+## Relationships
 ```mermaid
 erDiagram
-  USERS ||--o{ ORGANIZATION_MEMBERS : has
-  ORGANIZATIONS ||--o{ ORGANIZATION_MEMBERS : has
-  ORGANIZATIONS ||--o{ LEADS : owns
-  ORGANIZATIONS ||--o{ CONTACTS : owns
-  ORGANIZATIONS ||--o{ PROPERTIES : owns
-  ORGANIZATIONS ||--o{ TASKS : owns
-  ORGANIZATIONS ||--o{ ACTIVITIES : owns
-  ORGANIZATIONS ||--o| LICENSES : "licensed by"
-  LEADS ||--o| CONTACTS : "converts to"
-  CONTACTS ||--o{ PROPERTIES : "owns listing"
-  USERS ||--o{ REFRESH_TOKENS : has
+  USER ||--o{ ORGANIZATION_MEMBER : has
+  ORGANIZATION ||--o{ ORGANIZATION_MEMBER : has
+  ORGANIZATION ||--o{ LEAD : owns
+  ORGANIZATION ||--o{ CONTACT : owns
+  ORGANIZATION ||--o{ PROPERTY : owns
+  ORGANIZATION ||--o{ DEAL : owns
+  ORGANIZATION ||--o{ TASK : owns
+  ORGANIZATION ||--o{ AUTOMATION_WORKFLOW : owns
+  ORGANIZATION ||--o{ LICENSE : "has (one ACTIVE)"
+  LEAD ||--o| CONTACT : "converts to"
+  CONTACT ||--o{ PROPERTY : "owns listing"
+  CONTACT ||--o{ DEAL : "party to"
+  PROPERTY ||--o{ DEAL : "subject of"
+  AUTOMATION_WORKFLOW ||--o{ AUTOMATION_EXECUTION : runs
+  USER ||--o{ REFRESH_TOKEN : has
 ```
 
 ## Validation requirements
-- All inputs validated by Zod at the API edge; Mongoose validators are a second line of defense.
-- Cross-document references (assignedTo, ownerContactId, related*Id) must be verified to
-  belong to the **same organization** in the service layer.
-- Max lengths on all strings; arrays are capped (images 20, features 50).
+- Inputs are validated by Zod at the API edge; Mongoose validators are a second line of defense.
+- References (assignedTo, ownerContactId, contactId, propertyId, related ids) must belong to the **same organization**; services verify it.
+- Strings have maximum lengths and arrays are capped.
 
 ## Tenant isolation
-Defined in `MULTI_TENANCY.md`. In short, every org-owned model is accessed through a
-tenant-scoped repository helper that injects `organizationId` into every filter.
+See `MULTI_TENANCY.md`.
