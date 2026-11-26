@@ -27,7 +27,7 @@ export function createLeadRouter(limiters: RateLimiters) {
   const id = requireObjectIdParam('id', 'Lead');
 
   // authenticate -> resolveOrganization -> requireMembership
-  // -> rate limit -> id check -> authorize -> validate -> controller
+  // -> rate limit -> id check -> authorize -> license limit -> validate -> controller
   router.use(authenticate, resolveOrganization('header'), requireMembership, writesOnly);
 
   router.get('/', authorize('leads:read'), controller.list);
@@ -35,6 +35,7 @@ export function createLeadRouter(limiters: RateLimiters) {
   router.post(
     '/',
     authorize('leads:create'),
+    enforceLimit('leads'),
     validate({ body: createLeadSchema }),
     controller.create,
   );
@@ -71,6 +72,7 @@ export function createLeadRouter(limiters: RateLimiters) {
     '/:id/restore',
     id,
     authorize('leads:delete'),
+    enforceLimit('leads'),
     controller.restore,
   );
 
@@ -90,20 +92,6 @@ export function createLeadRouter(limiters: RateLimiters) {
     authorize('leads:convert'),
     validate({ body: convertLeadSchema }),
     contactController.convertLead,
-  );
-  router.post(
-    '/',
-    authorize('leads:create'),
-    enforceLimit('leads'),
-    validate({ body: createLeadSchema }),
-    controller.create,
-  );
-  router.post(
-    '/:id/restore',
-    id,
-    authorize('leads:delete'),
-    enforceLimit('leads'),
-    controller.restore,
   );
 
   return router;
