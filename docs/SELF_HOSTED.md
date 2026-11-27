@@ -115,13 +115,65 @@ License checks in self-hosted software can be bypassed by a determined user who 
 is not bound to a machine. The design aims for reasonable protection (signed keys, server-side checks, audit entries),
 not DRM. Set expectations commercially.
 
-## Docker Compose (target, not built yet)
-Services: `web` (nginx serving the build), `api`, `mongo` (single-node replica set, with volume). Configuration comes
-from a `.env` file. Healthchecks on all services; `mongo` is not exposed publicly. First run: open the site, create the
-owner account, then paste the license key.
+## Docker Compose production deployment
 
-## Configuration
-| Variable | Purpose | Default |
-|---|---|---|
-| `LICENSE_PUBLIC_KEY` | Vendor's Ed25519 public key (PEM; `\n` escapes allowed). Without it, activation returns 503 | none |
-| `LICENSE_GRACE_DAYS` | Days an install keeps working after its license ends (0 to 90) | 14 |
+EstateFlow includes a documented production Docker Compose deployment for self-hosted installations.
+
+The deployment consists of three services:
+
+| Service | Purpose |
+|---|---|
+| `web` | Nginx serving the production frontend build |
+| `api` | Node.js and Express backend |
+| `mongo` | MongoDB with a single-node replica set and persistent storage |
+
+### Configuration
+
+Production configuration is supplied through a `.env` file. Configure all required environment variables before starting the services.
+
+Keep production secrets outside version control. Do not expose MongoDB publicly.
+
+### First run
+
+1. Start the production Docker Compose services.
+2. Wait for the database and API health checks to pass.
+3. Open the application through its configured domain.
+4. Create the first owner account.
+5. Sign in and activate the installation using the license key supplied by the vendor.
+
+Registration closes automatically after the first user is created.
+
+### HTTPS
+
+Use HTTPS for production access. Configure the reverse proxy and TLS certificates according to the production deployment instructions.
+
+Do not expose the API or MongoDB directly to the public internet unless explicitly required and properly secured.
+
+### Backups and restoration
+
+Back up MongoDB data regularly and store backups outside the application server.
+
+Before restoring:
+
+1. Stop application writes.
+2. Restore the database using the documented MongoDB backup procedure.
+3. Verify database and replica-set health.
+4. Restart the application services.
+5. Verify login, CRM records and file uploads.
+
+Database backups and uploaded files should be backed up separately.
+
+### Upgrades
+
+1. Back up the database and uploaded files.
+2. Review the release notes and configuration changes.
+3. Pull or build the updated application images.
+4. Apply any required database migrations.
+5. Restart the production services.
+6. Verify health checks and essential application workflows.
+
+Do not remove persistent Docker volumes during upgrades.
+
+**Deployment verification status:** Phase 10c deployment instructions are written. Production images have not yet been built and run, so a successful end-to-end production deployment has not yet been verified.
+
+See the repository README for development setup and `docs/DEVELOPMENT_ROADMAP.md` for implementation status.

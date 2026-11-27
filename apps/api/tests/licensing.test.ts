@@ -82,7 +82,10 @@ describe('activation', () => {
     const status = await request(app).get(`${API}/licenses/status`).set(bearer(owner.accessToken)).set('X-Organization-Id', org);
     expect(status.status).toBe(200);
     expect(status.body.data.state).toBe('NONE');
-
+    // Members get counts too, so the UI can disable "Add" buttons without owner-only data.
+    expect(status.body.data.limits.leads).toBe(0);
+    expect(status.body.data.usage.find((u: { key: string }) => u.key === 'leads')).toMatchObject({ used: 0, limit: 0, atLimit: true });
+    expect(status.body.data.license).toBeUndefined();
     expect((await api.get('/leads')).status).toBe(200);
     const create = await api.post('/leads', validLead());
     expect(create.status).toBe(403);

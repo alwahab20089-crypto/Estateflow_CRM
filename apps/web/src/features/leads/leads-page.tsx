@@ -22,6 +22,7 @@ import { LeadsTable, type LeadRowAction } from './leads-table';
 import { PAGE_SIZES } from './lead-constants';
 import { useDeleteLead, useLeads, useRestoreLead } from './use-leads';
 import { useLeadFilters } from './use-lead-filters';
+import { useCreateGuard } from '@/features/license/use-license';
 
 export function LeadsPage() {
   const { can } = useAuth();
@@ -39,6 +40,7 @@ export function LeadsPage() {
   const leads = query.data?.data ?? [];
   const meta = query.data?.meta;
   const canDelete = can('leads:delete');
+  const leadGuard = useCreateGuard('leads');
   const archivedView = filters.view === 'archived';
 
   const onSort = (field: SortField) =>
@@ -88,17 +90,25 @@ export function LeadsPage() {
           <>
             {canDelete && (
               <div className="mr-2 flex items-center gap-2">
-                <Switch id="show-archived" checked={archivedView} onCheckedChange={(on) => update({ view: on ? 'archived' : undefined })} />
+                <Switch
+                  id="show-archived"
+                  checked={archivedView}
+                  onCheckedChange={(on) => update({ view: on ? 'archived' : undefined })}
+                />
                 <Label htmlFor="show-archived" className="font-normal">
                   Show archived
                 </Label>
               </div>
             )}
+
             <Button variant="outline" onClick={() => toast.info('Export is planned for a later phase.')}>
               <Download /> Export
             </Button>
+
             {can('leads:create') && (
               <Button
+                disabled={leadGuard.blocked}
+                title={leadGuard.reason}
                 onClick={() => {
                   setEditing(null);
                   setFormOpen(true);
@@ -115,7 +125,10 @@ export function LeadsPage() {
         <LeadFiltersBar filters={filters} hasActiveFilters={hasActiveFilters} onChange={update} onClear={clear} />
 
         {showError ? (
-          <ErrorState message={errorMessage(query.error, 'We could not load your leads.')} onRetry={() => query.refetch()} />
+          <ErrorState
+            message={errorMessage(query.error, 'We could not load your leads.')}
+            onRetry={() => query.refetch()}
+          />
         ) : showEmpty ? (
           hasActiveFilters ? (
             <EmptyState
@@ -128,12 +141,34 @@ export function LeadsPage() {
             <EmptyState
               icon={Target}
               title={archivedView ? 'No archived leads' : 'No leads yet'}
-              description={archivedView ? 'Deleted leads appear here and can be restored.' : 'Add your first lead to start tracking your pipeline.'}
-              action={!archivedView && can('leads:create') ? <Button onClick={() => { setEditing(null); setFormOpen(true); }}><Plus /> Add lead</Button> : undefined}
+              description={
+                archivedView
+                  ? 'Deleted leads appear here and can be restored.'
+                  : 'Add your first lead to start tracking your pipeline.'
+              }
+              action={
+                !archivedView && can('leads:create') ? (
+                  <Button
+                    disabled={leadGuard.blocked}
+                    title={leadGuard.reason}
+                    onClick={() => {
+                      setEditing(null);
+                      setFormOpen(true);
+                    }}
+                  >
+                    <Plus /> Add lead
+                  </Button>
+                ) : undefined
+              }
             />
           )
         ) : (
-          <div role={query.isLoading ? 'status' : undefined} aria-label={query.isLoading ? 'Loading leads' : undefined} aria-busy={query.isFetching} className={cn(query.isPlaceholderData && 'opacity-60 transition-opacity')}>
+          <div
+            role={query.isLoading ? 'status' : undefined}
+            aria-label={query.isLoading ? 'Loading leads' : undefined}
+            aria-busy={query.isFetching}
+            className={cn(query.isPlaceholderData && 'opacity-60 transition-opacity')}
+          >
             <LeadsTable
               leads={leads}
               isLoading={query.isLoading}
@@ -164,6 +199,7 @@ export function LeadsPage() {
       <LeadFormDialog open={formOpen} onOpenChange={setFormOpen} lead={editing} />
       <LeadStatusDialog lead={statusLead} onOpenChange={(open) => !open && setStatusLead(null)} />
       <LeadAssignDialog lead={assignLead} onOpenChange={(open) => !open && setAssignLead(null)} />
+
       <ConfirmDialog
         open={deleteTarget !== null}
         onOpenChange={(open) => !open && setDeleteTarget(null)}

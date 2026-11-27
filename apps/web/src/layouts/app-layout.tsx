@@ -5,6 +5,7 @@ import { Topbar } from '@/components/layout/topbar';
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { cn } from '@/lib/utils';
+import { LicenseBanner } from '@/features/license/license-banner';
 
 const COLLAPSE_KEY = 'ef-sidebar-collapsed';
 const GlobalSearch = lazy(() =>
@@ -76,16 +77,17 @@ export function AppLayout() {
         <Topbar onToggleSidebar={toggleSidebar} onOpenSearch={() => setSearchOpen(true)} />
         <main ref={mainRef} id="main-content" tabIndex={-1} className="flex-1 overflow-y-auto outline-none">
           <div className="mx-auto w-full max-w-7xl p-4 sm:p-6 lg:p-8">
+            <LicenseBanner />
             <Outlet />
           </div>
         </main>
       </div>
 
-{searchOpen && (
-  <Suspense fallback={null}>
-    <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
-  </Suspense>
-)}
+      {searchOpen && (
+        <Suspense fallback={null}>
+          <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
+        </Suspense>
+      )}
     </div>
   );
 }

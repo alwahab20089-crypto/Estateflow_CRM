@@ -43,22 +43,30 @@ export async function getLicenseOverview(t: TenantContext) {
     graceEndsAt: entitlements.graceEndsAt,
     license: license
       ? {
-          licensee: license.licensee,
-          keyLast4: license.keyLast4,
-          issuedAt: license.issuedAt,
-          activatedAt: license.activatedAt,
-          expiresAt: license.expiresAt ?? null,
-          status: license.status,
-        }
+        licensee: license.licensee,
+        keyLast4: license.keyLast4,
+        issuedAt: license.issuedAt,
+        activatedAt: license.activatedAt,
+        expiresAt: license.expiresAt ?? null,
+        status: license.status,
+      }
       : null,
     usage,
   };
 }
 
-/** The small version every member may read (drives the "license expired" banner and disabled buttons). */
+/** The version every member may read: drives the expiry banner and disabled buttons. Counts only; no license details. */
 export async function getLicenseStatus(t: TenantContext) {
-  const e = await getOrganizationEntitlements(t.organizationId);
-  return { state: e.state, edition: e.edition, features: e.features, validUntil: e.validUntil, graceEndsAt: e.graceEndsAt };
+  const [e, usage] = await Promise.all([getOrganizationEntitlements(t.organizationId), getOrganizationUsage(t.organizationId)]);
+  return {
+    state: e.state,
+    edition: e.edition,
+    features: e.features,
+    limits: e.limits,
+    validUntil: e.validUntil,
+    graceEndsAt: e.graceEndsAt,
+    usage,
+  };
 }
 
 export async function activateLicense(t: TenantContext, userId: string, rawKey: string, meta: RequestMeta) {

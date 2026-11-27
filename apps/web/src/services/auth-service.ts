@@ -1,5 +1,6 @@
 import { apiRequest } from '@/lib/api-client';
 import type { MembershipSummary, MeResponse, SessionResponse } from '@/types/auth';
+import type { SetupStatus } from '@/types/license';
 
 export interface OrganizationUpdate {
   name?: string;
@@ -10,6 +11,7 @@ export interface OrganizationUpdate {
   address?: { line1?: string; city?: string; state?: string; country?: string; postalCode?: string };
 }
 
+
 export const authService = {
   login: (body: { email: string; password: string; remember: boolean }) =>
     apiRequest<SessionResponse>('/auth/login', { method: 'POST', body, auth: false }),
@@ -17,6 +19,8 @@ export const authService = {
     apiRequest<SessionResponse>('/auth/register', { method: 'POST', body, auth: false }),
   logout: () => apiRequest<null>('/auth/logout', { method: 'POST', auth: false }),
   me: () => apiRequest<MeResponse>('/auth/me'),
+  /** Public. True only until the first account (the owner) exists. */
+  setupStatus: (signal?: AbortSignal) => apiRequest<SetupStatus>('/auth/setup', { auth: false, signal }),
   forgotPassword: (email: string) => apiRequest<null>('/auth/forgot-password', { method: 'POST', body: { email }, auth: false }),
   resetPassword: (token: string, password: string) =>
     apiRequest<null>('/auth/reset-password', { method: 'POST', body: { token, password }, auth: false }),

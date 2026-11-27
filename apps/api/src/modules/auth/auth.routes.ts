@@ -9,7 +9,7 @@ import { forgotPasswordSchema, loginSchema, registerSchema, resetPasswordSchema 
 export function createAuthRouter(limiters: RateLimiters) {
   const router = Router();
   const { auth, loginAccount } = limiters;
-
+  router.get('/setup', auth, controller.setupStatus);
   router.post('/register', auth, validate({ body: registerSchema }), controller.register);
   router.post('/login', auth, loginAccount, validate({ body: loginSchema }), controller.login);
   router.post('/refresh', auth, requireCsrfHeader, controller.refresh);

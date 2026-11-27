@@ -1,0 +1,70 @@
+# EstateFlow, production. Three services: mongo (single-node replica set), api, web (nginx).
+#
+#   cp .env.production.example .env      then edit .env
+#   docker compose up -d --build
+#
+# Only `web` is published. MongoDB and the API are reachable only from inside this Compose network.
+name: estateflow
+
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    # Transactions need a replica set, so MongoDB runs as a one-member set named rs0.
+    command: ["--replSet", "rs0", "--bind_ip", "0.0.0.0", "--port", "27017"]
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      # Healthy only once this node is PRIMARY. On the very first run the set does not exist yet:
+      # the check creates it, reports unhealthy once, and passes on the next try.
+      test:
+        - CMD
+        - mongosh
+        - --quiet
+        - --port
+        - "27017"
+        - --eval
+        - "try { quit(rs.status().myState === 1 ? 0 : 1) } catch (e) { rs.initiate({_id: 'rs0', members: [{_id: 0, host: 'mongo:27017'}]}); quit(1) }"
+      interval: 5s
+      timeout: 10s
+      retries: 20
+      start_period: 10s
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: "4000"
+      MONGODB_URI: mongodb://mongo:27017/${MONGO_DB_NAME:-estateflow}?replicaSet=rs0
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?Set JWT_ACCESS_SECRET in .env (at least 32 characters)}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?Set JWT_REFRESH_SECRET in .env (at least 32 characters, different from the access secret)}
+      FRONTEND_URL: ${PUBLIC_URL:?Set PUBLIC_URL in .env, for example https://crm.example.com}
+      TRUST_PROXY: ${TRUST_PROXY:-1}
+      LICENSE_PUBLIC_KEY: ${LICENSE_PUBLIC_KEY:-}
+      LICENSE_GRACE_DAYS: ${LICENSE_GRACE_DAYS:-14}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      EMAIL_PROVIDER: ${EMAIL_PROVIDER:-disabled}
+      UPLOAD_DIR: /data/uploads
+    volumes:
+      - uploads:/data/uploads
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "${WEB_PORT:-8080}:8080"
+
+volumes:
+  mongo-data:
+  uploads:

@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { FormField } from '@/components/common/form-field';
 import { fieldA11y } from '@/components/common/field-a11y';
@@ -13,12 +13,17 @@ import { Label } from '@/components/ui/label';
 import { ApiError } from '@/lib/api-client';
 import { useAuth } from '@/providers/auth-provider';
 import { loginSchema, type LoginValues } from '../schemas';
+import { useSetupStatus } from '../use-setup-status';
 
 export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
+
   const { login } = useAuth();
+  const setup = useSetupStatus();
+
   const [serverError, setServerError] = useState<string | null>(null);
+
   const {
     register,
     control,
@@ -26,65 +31,116 @@ export function LoginPage() {
     formState: { errors, isSubmitting },
   } = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
-    defaultValues: { email: '', password: '', remember: false },
+    defaultValues: {
+      email: '',
+      password: '',
+      remember: false,
+    },
   });
 
   const onSubmit = async (values: LoginValues) => {
     setServerError(null);
+
     try {
       await login(values);
       toast.success('Welcome back');
+
       const from = (location.state as { from?: string } | null)?.from;
+
       navigate(from ?? '/app/dashboard', { replace: true });
     } catch (err) {
-      setServerError(err instanceof ApiError ? err.message : 'Something went wrong. Please try again.');
+      setServerError(
+        err instanceof ApiError ? err.message : 'Something went wrong. Please try again.',
+      );
     }
   };
+
+  // A brand-new install has no accounts yet: go straight to creating the owner.
+  if (setup.data?.setupRequired) {
+    return <Navigate to="/register" replace />;
+  }
+
+  const registrationClosed = setup.data?.setupRequired === false;
 
   return (
     <div>
       <h1 className="text-page-title">Welcome back</h1>
-      <p className="mt-1 text-sm text-muted-foreground">Sign in to your EstateFlow workspace.</p>
+
+      <p className="mt-1 text-sm text-muted-foreground">
+        Sign in to your EstateFlow workspace.
+      </p>
 
       <form onSubmit={handleSubmit(onSubmit)} noValidate className="mt-6 space-y-4">
         {serverError && (
-          <div role="alert" className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          <div
+            role="alert"
+            className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive"
+          >
             {serverError}
           </div>
         )}
+
         <FormField id="email" label="Email" error={errors.email?.message}>
-          <Input type="email" autoComplete="email" placeholder="you@company.com" {...fieldA11y('email', errors.email?.message)} {...register('email')} />
+          <Input
+            type="email"
+            autoComplete="email"
+            placeholder="you@company.com"
+            {...fieldA11y('email', errors.email?.message)}
+            {...register('email')}
+          />
         </FormField>
+
         <FormField id="password" label="Password" error={errors.password?.message}>
-          <PasswordInput autoComplete="current-password" {...fieldA11y('password', errors.password?.message)} {...register('password')} />
+          <PasswordInput
+            autoComplete="current-password"
+            {...fieldA11y('password', errors.password?.message)}
+            {...register('password')}
+          />
         </FormField>
+
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Controller
               control={control}
               name="remember"
               render={({ field }) => (
-                <Checkbox id="remember" checked={field.value} onCheckedChange={(v) => field.onChange(v === true)} />
+                <Checkbox
+                  id="remember"
+                  checked={field.value}
+                  onCheckedChange={(v) => field.onChange(v === true)}
+                />
               )}
             />
+
             <Label htmlFor="remember" className="font-normal">
               Remember me
             </Label>
           </div>
-          <Link to="/forgot-password" className="text-sm font-medium text-primary hover:underline">
+
+          <Link
+            to="/forgot-password"
+            className="text-sm font-medium text-primary hover:underline"
+          >
             Forgot password?
           </Link>
         </div>
+
         <LoadingButton type="submit" className="w-full" loading={isSubmitting}>
           Sign in
         </LoadingButton>
       </form>
 
       <p className="mt-6 text-center text-sm text-muted-foreground">
-        New to EstateFlow?{' '}
-        <Link to="/register" className="font-medium text-primary hover:underline">
-          Create an account
-        </Link>
+        {registrationClosed ? (
+          'Need access? Ask your workspace owner to invite you.'
+        ) : (
+          <>
+            New to EstateFlow?{' '}
+            <Link to="/register" className="font-medium text-primary hover:underline">
+              Create an account
+            </Link>
+          </>
+        )}
       </p>
     </div>
   );

@@ -56,6 +56,17 @@ describe('POST /auth/register', () => {
     expect(await User.countDocuments()).toBe(1);
   });
 });
+describe('GET /auth/setup', () => {
+  it('reports that setup is required on a fresh install, and not after the first account', async () => {
+    const before = await request(app).get(`${API}/auth/setup`);
+    expect(before.status).toBe(200);
+    expect(before.body.data).toEqual({ setupRequired: true });
+
+    await registerUser();
+    const after = await request(app).get(`${API}/auth/setup`);
+    expect(after.body.data).toEqual({ setupRequired: false });
+  });
+});
 
 describe('POST /auth/login', () => {
   it('signs in with correct credentials', async () => {

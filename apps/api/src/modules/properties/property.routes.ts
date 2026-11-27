@@ -82,6 +82,13 @@ export function createPropertyRouter(limiters: RateLimiters) {
     enforceLimit('properties'),
     controller.restore,
   );
+  router.post(
+    '/:id/restore',
+    id,
+    authorize('properties:delete'),
+    enforceLimit('properties'),
+    controller.restore,
+  );
 
   router.get('/:id/activities', id, authorize('activities:read'), controller.activities);
 

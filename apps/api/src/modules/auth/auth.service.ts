@@ -12,6 +12,7 @@ import { User } from '../users/user.model';
 import { PasswordResetToken } from './password-reset-token.model';
 import type { LoginInput, RegisterInput } from './auth.validation';
 
+
 // OWASP-recommended Argon2id parameters (19 MiB, 2 iterations, 1 lane).
 const ARGON_OPTIONS = { type: argon2.argon2id, memoryCost: 19_456, timeCost: 2, parallelism: 1 } as const;
 export const hashPassword = (password: string) => argon2.hash(password, ARGON_OPTIONS);
@@ -22,9 +23,14 @@ const getDummyHash = () => (dummyHash ??= hashPassword('estateflow-timing-equali
 
 const RESET_TTL_MS = 60 * 60 * 1000;
 
+/** True until the first account exists. Public: it reveals nothing that a registration attempt would not. */
+export async function isSetupRequired() {
+  return !(await User.exists({}));
+}
+
 /** First-run setup only: once an administrator exists, new people join through invitations. */
 export async function register(input: RegisterInput, meta: RequestMeta) {
-  if (await User.exists({})) {
+  if (!(await isSetupRequired())) {
     throw AppError.forbidden('Registration is closed. Ask an administrator for an invitation.', 'REGISTRATION_CLOSED');
   }
   return createAccount(input, meta);
@@ -50,10 +56,18 @@ export async function createAccount(input: RegisterInput, meta: RequestMeta) {
       { name: input.organizationName, email: input.email },
       meta,
     );
+
     await recordAudit(
-      { actorId: createdUser!._id, action: 'auth.registered', resource: 'user', resourceId: createdUser!._id, meta },
+      {
+        actorId: createdUser!._id,
+        action: 'auth.registered',
+        resource: 'user',
+        resourceId: createdUser!._id,
+        meta,
+      },
       uow.session,
     );
+
     return { user: createdUser!, ...created };
   });
 
@@ -68,11 +82,19 @@ export async function login(input: LoginInput, meta: RequestMeta) {
 
   if (!user || !passwordOk || user.status === 'DELETED') {
     if (user) {
-      await recordAudit({ actorId: user._id, action: 'auth.login_failed', resource: 'user', resourceId: user._id, meta });
+      await recordAudit({
+        actorId: user._id,
+        action: 'auth.login_failed',
+        resource: 'user',
+        resourceId: user._id,
+        meta,
+      });
     }
+
     // Same message for unknown email and wrong password.
     throw AppError.unauthorized('Invalid email or password.', 'INVALID_CREDENTIALS');
   }
+
   if (user.status !== 'ACTIVE') {
     throw AppError.forbidden('This account is suspended. Please contact support.', 'ACCOUNT_SUSPENDED');
   }
@@ -87,9 +109,11 @@ export async function getAuthContext(userId: string, preferredOrganizationId?: s
   if (!user) throw AppError.unauthorized();
 
   const organizations = await listMembershipsForUser(userId);
+
   // The preferred id is only honored if it is one of the user's own memberships.
   const current =
     organizations.find((m) => String(m.organization._id) === preferredOrganizationId) ?? organizations[0] ?? null;
+
   return { user, organizations, current };
 }
 
@@ -105,29 +129,47 @@ export async function requestPasswordReset(email: string, meta: RequestMeta): Pr
   if (!user) return;
 
   await PasswordResetToken.updateMany({ userId: user._id, usedAt: null }, { $set: { usedAt: new Date() } });
+
   const token = generateOpaqueToken();
   await PasswordResetToken.create({
     userId: user._id,
     tokenHash: hashToken('password-reset', token),
     expiresAt: new Date(Date.now() + RESET_TTL_MS),
   });
-  await recordAudit({ actorId: user._id, action: 'auth.password_reset_requested', resource: 'user', resourceId: user._id, meta });
+
+  await recordAudit({
+    actorId: user._id,
+    action: 'auth.password_reset_requested',
+    resource: 'user',
+    resourceId: user._id,
+    meta,
+  });
+
   await mailer.sendPasswordReset({ to: user.email, token });
 }
 
 export async function resetPassword(token: string, newPassword: string, meta: RequestMeta): Promise<void> {
   const now = new Date();
+
   // Atomic single-use: only one request can flip usedAt from null.
   const record = await PasswordResetToken.findOneAndUpdate(
     { tokenHash: hashToken('password-reset', token), usedAt: null, expiresAt: { $gt: now } },
     { $set: { usedAt: now } },
   );
+
   if (!record) throw AppError.badRequest('This reset link is invalid or has expired.', 'INVALID_RESET_TOKEN');
 
   const passwordHash = await hashPassword(newPassword);
   await User.updateOne({ _id: record.userId }, { $set: { passwordHash }, $inc: { tokenVersion: 1 } });
   await revokeAllForUser(record.userId); // every existing session must sign in again
-  await recordAudit({ actorId: record.userId, action: 'auth.password_reset_completed', resource: 'user', resourceId: record.userId, meta });
+
+  await recordAudit({
+    actorId: record.userId,
+    action: 'auth.password_reset_completed',
+    resource: 'user',
+    resourceId: record.userId,
+    meta,
+  });
 }
 
 export { findActiveMembership };

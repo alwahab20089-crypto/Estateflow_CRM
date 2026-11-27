@@ -6,7 +6,9 @@ A modern CRM for real estate professionals: leads, contacts, property listings, 
 
 EstateFlow is a **self-hosted** CRM. You deploy it with Docker Compose on your own infrastructure. There is no hosted SaaS edition, no subscriptions and no payment provider.
 
-An install has one organization, created by first-run setup. What it may do (member, lead, property and deal limits; analytics, CSV export, automations, advanced notifications) comes from a **signed license key** that the owner pastes in Settings. Keys are verified offline; no license server is involved. See `docs/SELF_HOSTED.md`.
+An install has one organization, created by first-run setup. What it may do (member, lead, property and deal limits; analytics, CSV export, automations, advanced notifications) comes from a **signed license key** that the owner pastes in Settings. Keys are verified offline; no license server is involved.
+
+See `docs/SELF_HOSTED.md`.
 
 ## Target customers
 
@@ -40,7 +42,7 @@ MongoDB 7 is provided through Docker Compose, including the replica-set configur
 
 ## Documentation
 
-All design documents live in `docs/`:
+All design and deployment documents live in `docs/`:
 
 1. `PRODUCT_REQUIREMENTS.md`
 2. `SYSTEM_ARCHITECTURE.md`
@@ -55,9 +57,9 @@ All design documents live in `docs/`:
 
 ## Development phases
 
-See `docs/DEVELOPMENT_ROADMAP.md` for the status of each phase.
+See `docs/DEVELOPMENT_ROADMAP.md` for the status of each phase, including implementation and deployment milestones.
 
-## Configuring the project
+## Development setup
 
 ### 1. Clone the repository
 
@@ -121,7 +123,28 @@ The API runs on port `4000` and the frontend on `5173`, unless configured otherw
 
 ### 6. First run
 
-Open the web app and create the owner account (registration works once; it closes after the first user). Then, as the owner, paste your license key on the License settings page (Phase 10b web).
+Open the web app and create the owner account. Registration works once and closes after the first user.
+
+Then, as the owner, paste your license key on the License settings page.
+
+## Running in production with Docker
+
+EstateFlow provides a production Docker Compose deployment for self-hosted installations.
+
+The production deployment includes:
+
+- **Web:** React frontend served through the production web container.
+- **API:** Node.js and Express backend.
+- **MongoDB:** Persistent database with replica-set support.
+- **Docker Compose:** Service orchestration and container networking.
+
+For production installation, environment configuration, HTTPS, backups, restoration and upgrades, follow:
+
+**[`docs/SELF_HOSTED.md`](docs/SELF_HOSTED.md)**
+
+Do not use development environment settings or development Compose configuration for production deployments.
+
+**Deployment status:** Phase 10c production Docker configuration is documented. Docker images have not yet been built and run as part of the verified deployment process.
 
 ## Issuing license keys (vendor)
 
@@ -133,13 +156,28 @@ npm run license -- issue --private-key ../../license-keys/license-private.pem --
 
 Keep `license-private.pem` out of git and off customer machines. Put `license-public.pem` into `LICENSE_PUBLIC_KEY`.
 
-## Docker MongoDB configuration
+## Docker MongoDB development configuration
 
-- MongoDB 7, replica set `rs0`, port `27017`, persistent volume `mongo-data`, health check that initializes the replica set.
+- MongoDB 7
+- Replica set: `rs0`
+- Port: `27017`
+- Persistent volume: `mongo-data`
+- Health check that initializes the replica set
+
+Useful development commands:
 
 ```bash
-docker compose -f docker/docker-compose.dev.yml down        # stop
-docker compose -f docker/docker-compose.dev.yml down -v     # stop and DELETE local data
+docker compose -f docker/docker-compose.dev.yml down
 ```
 
-A production Docker Compose setup (web, api, mongo) is planned for Phase 10c.
+Stop development containers without deleting database data.
+
+```bash
+docker compose -f docker/docker-compose.dev.yml down -v
+```
+
+Stop development containers and delete their associated volumes, including local database data.
+
+---
+
+**License:** See the repository's license file for licensing terms.

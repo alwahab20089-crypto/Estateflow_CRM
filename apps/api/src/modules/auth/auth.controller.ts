@@ -8,7 +8,10 @@ import { toMembershipDto, toOrganizationDto, toUserDto } from '../../utils/seria
 import { ACCESS_TTL_SECONDS } from '../../utils/token';
 import { revokeFamilyByToken, rotateSession } from '../refresh-tokens/refresh-token.service';
 import * as authService from './auth.service';
-
+export const setupStatus = asyncHandler(async (_req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  sendSuccess(res, { data: { setupRequired: await authService.isSetupRequired() } });
+});
 export const register = asyncHandler(async (req, res) => {
   const { user, organization, role, permissions, tokens } = await authService.register(req.body, getRequestMeta(req));
   setRefreshCookie(res, tokens.refreshToken, tokens.persistent);
